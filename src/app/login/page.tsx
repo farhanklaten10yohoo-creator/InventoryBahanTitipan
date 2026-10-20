@@ -48,9 +48,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 bg-white shadow-2xl rounded-2xl border-0 space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center font-bold text-white text-xl mx-auto shadow-md">
-            BT
-          </div>
+        <div className="w-16 h-16 mx-auto flex items-center justify-center">
+  <img src="/Logo.png" alt="Logo" className="w-full h-full object-contain" />
+</div>
           <h1 className="text-2xl font-bold text-slate-900">Inventory Titipan</h1>
           <p className="text-xs text-slate-500">
             Masukkan username dan password Anda untuk mengakses aplikasi
