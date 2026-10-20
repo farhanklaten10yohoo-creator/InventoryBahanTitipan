@@ -1,0 +1,100 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { Alert, Button, Card, Input } from "@/components/ui";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const cleanUsername = username.trim().toLowerCase();
+    const formattedEmail = cleanUsername.includes("@")
+      ? cleanUsername
+      : `${cleanUsername}@titipan.com`;
+
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      email: formattedEmail,
+      password,
+    });
+
+    setLoading(false);
+
+    if (loginError) {
+      console.error("Login error:", loginError);
+      if (loginError.message.includes("Email not confirmed")) {
+        setError("Email belum dikonfirmasi di Supabase Dashboard.");
+      } else if (loginError.message.includes("Invalid login credentials")) {
+        setError("Username atau Password salah. Pastikan user sudah dibuat di Supabase.");
+      } else {
+        setError(`Gagal Login: ${loginError.message}`);
+      }
+    } else if (data.session) {
+      router.push("/");
+      router.refresh();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-8 bg-white shadow-2xl rounded-2xl border-0 space-y-6">
+        <div className="text-center space-y-2">
+          <div className="w-12 h-12 bg-emerald-600 rounded-xl flex items-center justify-center font-bold text-white text-xl mx-auto shadow-md">
+            BT
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Inventory Titipan</h1>
+          <p className="text-xs text-slate-500">
+            Masukkan username dan password Anda untuk mengakses aplikasi
+          </p>
+        </div>
+
+        {error ? <Alert tone="error">{error}</Alert> : null}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              Username
+            </label>
+            <Input
+              type="text"
+              required
+              placeholder="Contoh: admin"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              Password
+            </label>
+            <Input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          <Button type="submit" className="w-full py-2.5" disabled={loading}>
+            {loading ? "Memproses Login..." : "Masuk Aplikasi"}
+          </Button>
+        </form>
+
+        <div className="text-center text-xs text-slate-400 pt-2 border-t border-slate-100">
+          Progam By Farhan &copy; 2026
+        </div>
+      </Card>
+    </div>
+  );
+}
