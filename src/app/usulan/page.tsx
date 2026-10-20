@@ -508,19 +508,19 @@ export default function UsulanPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    KEDATANGAN BARANG
-                  </N>
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={jumlahKedatangan}
-                    onChange={(e) =>
-                      setJumlahKedatangan(e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                  />
-                </div>
+  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+    KEDATANGAN BARANG
+  </label>
+  <Input
+    type="number"
+    min={0}
+    placeholder="0"
+    value={jumlahKedatangan}
+    onChange={(e) =>
+      setJumlahKedatangan(e.target.value === "" ? "" : Number(e.target.value))
+    }
+  />
+</div>
               </div>
 
               <div>
