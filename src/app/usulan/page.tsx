@@ -7,9 +7,18 @@ import { supabase } from "@/lib/supabase";
 import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
 import { explainError, toNumber } from "@/lib/utils";
 
+// Tipe data untuk Master SPO
+interface MasterSpo {
+  no_spo: string;
+  nama_order: string;
+  nama_pemesan: string;
+  jumlah_order: number;
+}
+
 export default function UsulanPage() {
   const [usulanList, setUsulanList] = useState<UsulanWithBarang[]>([]);
   const [masterList, setMasterList] = useState<MasterBarang[]>([]);
+  const [masterSpoList, setMasterSpoList] = useState<MasterSpo[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -35,8 +44,7 @@ export default function UsulanPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
-
-    const [resUsulan, resMaster] = await Promise.all([
+    const [resUsulan, resMaster, resSpo] = await Promise.all([
       supabase
         .from("usulan_barang_titipan")
         .select("*, master_barang_titipan(*)")
@@ -45,6 +53,10 @@ export default function UsulanPage() {
         .from("master_barang_titipan")
         .select("*")
         .order("nama_bahan", { ascending: true }),
+      supabase
+        .from("master_spo")
+        .select("*")
+        .order("no_spo", { ascending: true }),
     ]);
 
     if (resUsulan.error) {
@@ -52,17 +64,48 @@ export default function UsulanPage() {
     } else {
       setUsulanList((resUsulan.data ?? []) as UsulanWithBarang[]);
     }
-
     if (resMaster.data) {
       setMasterList(resMaster.data as MasterBarang[]);
     }
-
+    if (resSpo.data) {
+      setMasterSpoList(resSpo.data as MasterSpo[]);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  // FUNGSI XLOOKUP OTOMATIS BERDASARKAN NO SPO
+  const handleNoSpoChange = async (val: string) => {
+    setNoSpo(val);
+    if (!val.trim()) return;
+
+    // Cari langsung di data list yang sudah diload, atau query ke supabase jika ingin pas akurat
+    const found = masterSpoList.find(
+      (item) => item.no_spo.toLowerCase() === val.trim().toLowerCase()
+    );
+
+    if (found) {
+      setNamaOrder(found.nama_order || "");
+      setNamaPemesan(found.nama_pemesan || "");
+      setJumlahOrder(found.jumlah_order || "");
+    } else {
+      // Jika diketik manual dan tidak ada di master, coba fetch langsung
+      const { data } = await supabase
+        .from("master_spo")
+        .select("*")
+        .ilike("no_spo", val.trim())
+        .maybeSingle();
+
+      if (data) {
+        setNamaOrder(data.nama_order || "");
+        setNamaPemesan(data.nama_pemesan || "");
+        setJumlahOrder(data.jumlah_order || "");
+      }
+    }
+  };
 
   // SARAN UNIK NAMA PEMESAN
   const pemesanSuggestions = useMemo(() => {
@@ -128,7 +171,6 @@ export default function UsulanPage() {
     };
 
     let resError = null;
-
     if (editingId) {
       const { error: err } = await supabase
         .from("usulan_barang_titipan")
@@ -155,7 +197,6 @@ export default function UsulanPage() {
 
   const handleDelete = async (id: string, spo: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus inputan SPO: "${spo}"?`)) return;
-
     const { error: delErr } = await supabase
       .from("usulan_barang_titipan")
       .delete()
@@ -212,7 +253,7 @@ export default function UsulanPage() {
             <Button onClick={openCreateModal}>+ Tambah Inputan</Button>
           </div>
 
-          {/* TABEL INPUTAN DENGAN SCROLLBAR TERKUNCI KHUSUS TABEL */}
+          {/* TABEL INPUTAN */}
           {loading ? (
             <div className="p-8 text-center text-sm text-slate-500">Memuat data inputan...</div>
           ) : filteredUsulan.length === 0 ? (
@@ -344,7 +385,6 @@ export default function UsulanPage() {
                     <strong>{filteredUsulan.length}</strong> data
                   </span>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -354,11 +394,9 @@ export default function UsulanPage() {
                   >
                     Sebelumnya
                   </Button>
-
                   <span className="font-semibold text-slate-700">
                     Halaman {currentPage} dari {totalPages}
                   </span>
-
                   <Button
                     variant="outline"
                     disabled={currentPage >= totalPages}
@@ -381,7 +419,6 @@ export default function UsulanPage() {
             <h3 className="text-lg font-bold text-slate-900">
               {editingId ? "Ubah Inputan Barang" : "Tambah Inputan Barang"}
             </h3>
-
             <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
@@ -391,8 +428,19 @@ export default function UsulanPage() {
                   required
                   placeholder="Contoh: 045/PW/09/2026"
                   value={noSpo}
-                  onChange={(e) => setNoSpo(e.target.value)}
+                  onChange={(e) => handleNoSpoChange(e.target.value)}
+                  list="list-spo"
                 />
+                <datalist id="list-spo">
+                  {masterSpoList.map((spo) => (
+                    <option key={spo.no_spo} value={spo.no_spo}>
+                      {spo.nama_order} ({spo.nama_pemesan})
+                    </option>
+                  ))}
+                </datalist>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  *Ketik atau pilih No SPO untuk mengisi otomatis Nama Order, Pemesan, dan Jumlah Order.
+                </p>
               </div>
 
               <div>
@@ -459,11 +507,10 @@ export default function UsulanPage() {
                     }
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
                     KEDATANGAN BARANG
-                  </label>
+                  </N>
                   <Input
                     type="number"
                     min={0}
