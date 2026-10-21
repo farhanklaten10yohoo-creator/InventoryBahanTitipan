@@ -7,13 +7,12 @@ import { supabase } from "@/lib/supabase";
 import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
 import { explainError, toNumber } from "@/lib/utils";
 
-// Tipe data untuk Master SPO
+// Tipe data untuk Master SPO disesuaikan persis dengan kolom Supabase
 interface MasterSpo {
   no_spo: string;
   nama_order: string;
   nama_pemesan: string;
-  jumlah_order?: number;
-  jum?: number;
+  jumlah_order: number | string;
 }
 
 export default function UsulanPage() {
@@ -56,7 +55,7 @@ export default function UsulanPage() {
         .order("nama_bahan", { ascending: true }),
       supabase
         .from("master_spo")
-        .select("*")
+        .select("no_spo, nama_order, nama_pemesan, jumlah_order")
         .order("no_spo", { ascending: true }),
     ]);
 
@@ -69,8 +68,10 @@ export default function UsulanPage() {
       setMasterList(resMaster.data as MasterBarang[]);
     }
     if (resSpo.data) {
-      setMasterSpoList(resSpo.data as MasterSpo[]);
+      console.log("Master SPO loaded:", resSpo.data.length);
+      setMasterSpoList((resSpo.data ?? []) as MasterSpo[]);
     }
+
     setLoading(false);
   }, []);
 
@@ -78,8 +79,8 @@ export default function UsulanPage() {
     void loadData();
   }, [loadData]);
 
-  // FUNGSI XLOOKUP OTOMATIS BERDASARKAN NO SPO (FLEKSIBEL & LANGSUNG QUERY JIKA PERLU)
-  const handleNoSpoChange = async (val: string) => {
+  // FUNGSI XLOOKUP PRESISI BERDASARKAN NO SPO
+  const handleNoSpoChange = (val: string) => {
     setNoSpo(val);
     if (!val.trim()) {
       setNamaOrder("");
@@ -88,34 +89,23 @@ export default function UsulanPage() {
       return;
     }
 
-    const cleanVal = val.toLowerCase().trim();
-    // 1. Cari di list master SPO memori lokal
+    const cleanInput = val.trim().toLowerCase();
+
+    // Cari data yang sama persis atau mengandung No SPO tersebut di list memori
     const found = masterSpoList.find(
-      (item) => item.no_spo && item.no_spo.toLowerCase().trim() === cleanVal
+      (item) => item.no_spo && item.no_spo.trim().toLowerCase() === cleanInput
     );
 
     if (found) {
+      console.log("XLOOKUP Berhasil ditemukan:", found);
       setNamaOrder(found.nama_order || "");
       setNamaPemesan(found.nama_pemesan || "");
-      setJumlahOrder(found.jumlah_order ?? found.jum ?? "");
+      setJumlahOrder(found.jumlah_order !== undefined ? Number(found.jumlah_order) : "");
     } else {
-      // 2. Jika tidak ada di memori lokal, langsung query ke Supabase
-      const { data, error } = await supabase
-        .from("master_spo")
-        .select("*")
-        .ilike("no_spo", `%${val.trim()}%`)
-        .limit(1)
-        .maybeSingle();
-
-      if (data && !error) {
-        setNamaOrder(data.nama_order || "");
-        setNamaPemesan(data.nama_pemesan || "");
-        setJumlahOrder(data.jumlah_order ?? data.jum ?? "");
-      } else {
-        setNamaOrder("");
-        setNamaPemesan("");
-        setJumlahOrder("");
-      }
+      // Jika diketik manual tidak pas persis, kosongkan agar user bisa isi / cek datalist
+      setNamaOrder("");
+      setNamaPemesan("");
+      setJumlahOrder("");
     }
   };
 
@@ -438,20 +428,21 @@ export default function UsulanPage() {
                 </label>
                 <Input
                   required
-                  placeholder="Contoh: 045/PW/09/2026"
+                  placeholder="Ketik atau pilih No SPO..."
                   value={noSpo}
                   onChange={(e) => handleNoSpoChange(e.target.value)}
+                  onBlur={(e) => handleNoSpoChange(e.target.value)}
                   list="list-spo"
                 />
                 <datalist id="list-spo">
                   {masterSpoList.map((spo) => (
                     <option key={spo.no_spo} value={spo.no_spo}>
-                      {spo.nama_order} ({spo.nama_pemesan})
+                      {spo.nama_order} - {spo.nama_pemesan}
                     </option>
                   ))}
                 </datalist>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  *Ketik atau pilih No SPO untuk mengisi otomatis Nama Order, Pemesan, dan Jumlah Order.
+                  *Pilih dari daftar atau ketik persis No SPO untuk mengisi otomatis.
                 </p>
               </div>
 
@@ -461,7 +452,7 @@ export default function UsulanPage() {
                 </label>
                 <Input
                   required
-                  placeholder="Contoh: BUKU HARDCOVER PILUNG ALQURAN"
+                  placeholder="Otomatis terisi dari Master SPO"
                   value={namaOrder}
                   onChange={(e) => setNamaOrder(e.target.value)}
                 />
@@ -472,7 +463,7 @@ export default function UsulanPage() {
                   NAMA PEMESAN
                 </label>
                 <Input
-                  placeholder="Contoh: INDIVA MEDIA KREASI, CV"
+                  placeholder="Otomatis terisi dari Master SPO"
                   value={namaPemesan}
                   onChange={(e) => setNamaPemesan(e.target.value)}
                   list="list-pemesan"
@@ -512,7 +503,7 @@ export default function UsulanPage() {
                     type="number"
                     required
                     min={0}
-                    placeholder="0"
+                    placeholder="Otomatis terisi"
                     value={jumlahOrder}
                     onChange={(e) =>
                       setJumlahOrder(e.target.value === "" ? "" : Number(e.target.value))
