@@ -67,7 +67,10 @@ export default function UsulanPage() {
     if (resMaster.data) {
       setMasterList(resMaster.data as MasterBarang[]);
     }
-    if (resSpo.data) {
+    if (resSpo.error) {
+      console.error("Gagal load master_spo:", resSpo.error);
+    } else if (resSpo.data) {
+      console.log("Berhasil load master_spo total:", resSpo.data.length);
       setMasterSpoList((resSpo.data ?? []) as MasterSpo[]);
     }
 
@@ -78,64 +81,58 @@ export default function UsulanPage() {
     void loadData();
   }, [loadData]);
 
-  // FUNGSI UTAMA PENCARIAN XLOOKUP YANG DIPERKUAT
+  // FUNGSI XLOOKUP DENGAN ALERT DEBUGGING JIKA TIDAK KETEMU
   const executeXLookup = async (val: string) => {
-    const cleanVal = val.trim().toUpperCase();
+    const cleanVal = val.trim();
     if (!cleanVal) {
-      setNamaOrder("");
-      setNamaPemesan("");
-      setJumlahOrder("");
+      alert("Mohon ketik No SPO terlebih dahulu!");
       return;
     }
 
-    // 1. Cek di memori lokal masterSpoList
+    console.log("Mencari No SPO:", cleanVal);
+
+    // 1. Cari di memori lokal masterSpoList
     const found = masterSpoList.find(
-      (item) => item.no_spo && item.no_spo.trim().toUpperCase() === cleanVal
+      (item) => item.no_spo && item.no_spo.trim().toUpperCase() === cleanVal.toUpperCase()
     );
 
     if (found) {
+      console.log("Ditemukan di memori lokal:", found);
       setNamaOrder(found.nama_order || "");
       setNamaPemesan(found.nama_pemesan || "");
       setJumlahOrder(found.jumlah_order !== undefined ? Number(found.jumlah_order) : "");
       return;
     }
 
-    // 2. Jika tidak ketemu di lokal, langsung tembak database Supabase secara presisi
+    // 2. Jika tidak ada di lokal, tembak langsung ke Supabase menggunakan ilike agar fleksibel
     const { data, error } = await supabase
       .from("master_spo")
       .select("*")
-      .eq("no_spo", cleanVal)
+      .ilike("no_spo", `%${cleanVal}%`)
+      .limit(1)
       .maybeSingle();
 
-    if (data && !error) {
+    if (error) {
+      console.error("Supabase error:", error);
+      alert(`Error database: ${error.message}`);
+      return;
+    }
+
+    if (data) {
+      console.log("Ditemukan via Supabase query:", data);
       setNamaOrder(data.nama_order || "");
       setNamaPemesan(data.nama_pemesan || "");
       setJumlahOrder(data.jumlah_order !== undefined ? Number(data.jumlah_order) : "");
     } else {
-      // 3. Coba pencarian fleksibel (ilike) jika user mengetik sebagian
-      const { data: dataLike } = await supabase
-        .from("master_spo")
-        .select("*")
-        .ilike("no_spo", `%${cleanVal}%`)
-        .limit(1)
-        .maybeSingle();
-
-      if (dataLike) {
-        setNamaOrder(dataLike.nama_order || "");
-        setNamaPemesan(dataLike.nama_pemesan || "");
-        setJumlahOrder(dataLike.jumlah_order !== undefined ? Number(dataLike.jumlah_order) : "");
-      } else {
-        setNamaOrder("");
-        setNamaPemesan("");
-        setJumlahOrder("");
-      }
+      alert(`No SPO "${cleanVal}" tidak ditemukan di database master_spo!`);
+      setNamaOrder("");
+      setNamaPemesan("");
+      setJumlahOrder("");
     }
   };
 
   const handleNoSpoChange = (val: string) => {
-    const upperVal = val.toUpperCase();
-    setNoSpo(upperVal);
-    void executeXLookup(upperVal);
+    setNoSpo(val);
   };
 
   // SARAN UNIK NAMA PEMESAN
@@ -462,28 +459,19 @@ export default function UsulanPage() {
                       placeholder="Ketik No SPO (misal: 004/EKS/10/2026)..."
                       value={noSpo}
                       onChange={(e) => handleNoSpoChange(e.target.value)}
-                      onBlur={(e) => handleNoSpoChange(e.target.value)}
-                      list="list-spo"
                     />
-                    <datalist id="list-spo">
-                      {masterSpoList.map((spo) => (
-                        <option key={spo.no_spo} value={spo.no_spo}>
-                          {spo.nama_order} - {spo.nama_pemesan}
-                        </option>
-                      ))}
-                    </datalist>
                   </div>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => void executeXLookup(noSpo)}
-                    className="px-3 text-xs"
+                    className="px-4 text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold"
                   >
                     Cari SPO
                   </Button>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  *Tekan tombol &quot;Cari SPO&quot; atau pindah kursor jika data belum otomatis terisi.
+                  *Ketik No SPO lalu klik tombol &quot;Cari SPO&quot; di sampingnya.
                 </p>
               </div>
 
