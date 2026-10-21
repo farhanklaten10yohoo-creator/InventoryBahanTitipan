@@ -12,7 +12,8 @@ interface MasterSpo {
   no_spo: string;
   nama_order: string;
   nama_pemesan: string;
-  jumlah_order: number;
+  jumlah_order?: number;
+  jum?: number;
 }
 
 export default function UsulanPage() {
@@ -77,7 +78,7 @@ export default function UsulanPage() {
     void loadData();
   }, [loadData]);
 
-  // FUNGSI XLOOKUP OTOMATIS BERDASARKAN NO SPO
+  // FUNGSI XLOOKUP OTOMATIS BERDASARKAN NO SPO (FLEKSIBEL & LANGSUNG QUERY JIKA PERLU)
   const handleNoSpoChange = async (val: string) => {
     setNoSpo(val);
     if (!val.trim()) {
@@ -87,27 +88,29 @@ export default function UsulanPage() {
       return;
     }
 
-    // 1. Cari langsung di list master SPO yang sudah diload
+    const cleanVal = val.toLowerCase().trim();
+    // 1. Cari di list master SPO memori lokal
     const found = masterSpoList.find(
-      (item) => item.no_spo?.toLowerCase().trim() === val.toLowerCase().trim()
+      (item) => item.no_spo && item.no_spo.toLowerCase().trim() === cleanVal
     );
 
     if (found) {
       setNamaOrder(found.nama_order || "");
       setNamaPemesan(found.nama_pemesan || "");
-      setJumlahOrder(found.jumlah_order || "");
+      setJumlahOrder(found.jumlah_order ?? found.jum ?? "");
     } else {
-      // 2. Jika diketik manual dan tidak ada di list memori, query langsung ke Supabase
-      const { data } = await supabase
+      // 2. Jika tidak ada di memori lokal, langsung query ke Supabase
+      const { data, error } = await supabase
         .from("master_spo")
         .select("*")
-        .ilike("no_spo", val.trim())
+        .ilike("no_spo", `%${val.trim()}%`)
+        .limit(1)
         .maybeSingle();
 
-      if (data) {
+      if (data && !error) {
         setNamaOrder(data.nama_order || "");
         setNamaPemesan(data.nama_pemesan || "");
-        setJumlahOrder(data.jumlah_order || "");
+        setJumlahOrder(data.jumlah_order ?? data.jum ?? "");
       } else {
         setNamaOrder("");
         setNamaPemesan("");
