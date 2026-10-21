@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { AppShell } from "@/components/app-shell";
 import { Alert, Button, Card, EmptyState, Input } from "@/components/ui";
@@ -25,9 +25,47 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // STATE UNTUK PAGINASI & ROWS PER PAGE
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // State untuk menyimpan lebar kustom tiap kolom (dalam piksel)
+  const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
+    no_spo: 140,
+    nama_order: 220,
+    nama_pemesan: 200,
+    barang: 240,
+    jumlah_order: 150,
+    kedatangan: 140,
+    kekurangan: 140,
+  });
+
+  const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  const startResizing = (key: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = {
+      key,
+      startX: e.clientX,
+      startWidth: columnWidths[key] || 150,
+    };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const { key, startX, startWidth } = resizingRef.current;
+      const diff = moveEvent.clientX - startX;
+      const newWidth = Math.max(80, startWidth + diff); // Lebar minimum 80px
+      setColumnWidths((prev) => ({ ...prev, [key]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      resizingRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,12 +87,10 @@ export default function DashboardPage() {
     void load();
   }, [load]);
 
-  // RESET KE HALAMAN 1 SAAT FILTER ATAU JUMLAH BARIS DIUBAH
   useEffect(() => {
     setCurrentPage(1);
   }, [search, pageSize]);
 
-  // AKUMULASI REKAP DATA PER SPO
   const groupedData = useMemo(() => {
     const map = new Map<string, GroupedRekap>();
     rows.forEach((row) => {
@@ -82,7 +118,6 @@ export default function DashboardPage() {
     return Array.from(map.values());
   }, [rows]);
 
-  // FILTER PENCARIAN
   const filteredData = useMemo(() => {
     if (!search.trim()) return groupedData;
     const q = search.toLowerCase();
@@ -95,7 +130,6 @@ export default function DashboardPage() {
     );
   }, [groupedData, search]);
 
-  // PAGINATION SLICE
   const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -105,13 +139,11 @@ export default function DashboardPage() {
   const startIndex = filteredData.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endIndex = Math.min(currentPage * pageSize, filteredData.length);
 
-  // STATISTIK RINGKASAN
   const totalSPO = groupedData.length;
   const totalJumlahOrder = groupedData.reduce((acc, item) => acc + item.jumlah_order, 0);
   const totalSudahDatang = groupedData.reduce((acc, item) => acc + item.total_kedatangan, 0);
   const totalKekurangan = Math.max(0, totalJumlahOrder - totalSudahDatang);
 
-  // FUNGSI EXPORT DATA KE EXCEL
   const handleExportExcel = () => {
     if (filteredData.length === 0) {
       alert("Tidak ada data untuk diekspor.");
@@ -141,7 +173,6 @@ export default function DashboardPage() {
       subtitle="Ringkasan inputan barang titipan, akumulasi kekurangan, dan pencarian cepat."
     >
       <div className="space-y-6 w-full min-w-0">
-        {/* CARD RINGKASAN */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="p-5">
             <p className="text-sm font-medium text-slate-500">Total SPO / Inputan</p>
@@ -172,7 +203,6 @@ export default function DashboardPage() {
 
         {error ? <Alert tone="error">{error}</Alert> : null}
 
-        {/* TABEL REKAP UTAMA */}
         <Card className="p-0 overflow-hidden w-full min-w-0">
           <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white">
             <div>
@@ -214,69 +244,50 @@ export default function DashboardPage() {
             </div>
           ) : (
             <>
-              {/* TABEL REKAP */}
               <div className="overflow-x-auto w-full p-4 bg-white">
-                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700">
-                  <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700">
+                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700 table-fixed">
+                  <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700 select-none">
                     <tr>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
-                          NO SPO
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[220px] text-center select-none">
-                          NAMA ORDER
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[200px] text-center select-none">
-                          NAMA PEMESAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[240px] text-center select-none">
-                          NAMA / KODE BARANG
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[150px] text-center select-none">
-                          JUMLAH ORDER
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
-                          KEDATANGAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
-                          KEKURANGAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
+                      {[
+                        { key: "no_spo", label: "NO SPO" },
+                        { key: "nama_order", label: "NAMA ORDER" },
+                        { key: "nama_pemesan", label: "NAMA PEMESAN" },
+                        { key: "barang", label: "NAMA / KODE BARANG" },
+                        { key: "jumlah_order", label: "JUMLAH ORDER" },
+                        { key: "kedatangan", label: "KEDATANGAN" },
+                        { key: "kekurangan", label: "KEKURANGAN" },
+                      ].map((col) => (
+                        <th
+                          key={col.key}
+                          style={{ width: columnWidths[col.key] }}
+                          className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors"
+                        >
+                          <div className="px-4 py-3 text-center truncate">
+                            {col.label}
+                          </div>
+                          {/* Pegangan Drag Resizer (Garis Hijau Menyala saat Hover/Drag) */}
+                          <div
+                            onMouseDown={(e) => startResizing(col.key, e)}
+                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent group-hover:bg-emerald-500 transition-colors"
+                          />
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white">
                     {paginatedData.map((item) => (
                       <tr key={item.no_spo} className="hover:bg-slate-50 transition">
-                        <td className="border border-slate-300 px-4 py-3 font-semibold text-slate-900 whitespace-normal break-words font-mono">
+                        <td className="border border-slate-300 px-4 py-3 font-semibold text-slate-900 truncate font-mono">
                           {item.no_spo}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 font-medium text-slate-800 whitespace-normal break-words">
+                        <td className="border border-slate-300 px-4 py-3 font-medium text-slate-800 truncate">
                           {item.nama_order}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-slate-800 font-medium whitespace-normal break-words">
+                        <td className="border border-slate-300 px-4 py-3 text-slate-800 font-medium truncate">
                           {item.nama_pemesan}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 whitespace-normal break-words">
-                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5 mb-1">
+                        <td className="border border-slate-300 px-4 py-3 truncate">
+                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
                             {item.kode_barang}
                           </span>
                           <span className="text-slate-700">{item.nama_bahan}</span>
@@ -302,7 +313,6 @@ export default function DashboardPage() {
                 </table>
               </div>
 
-              {/* FOOTER PAGINASI */}
               <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 text-xs text-slate-600">
                 <div className="flex items-center gap-2">
                   <span>Tampilkan:</span>

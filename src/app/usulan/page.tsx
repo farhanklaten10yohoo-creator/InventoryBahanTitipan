@@ -1,18 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Alert, Button, Card, EmptyState, Input } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
 import { explainError, toNumber } from "@/lib/utils";
-
-interface MasterSpo {
-  no_spo: string;
-  nama_order: string;
-  nama_pemesan: string;
-  jumlah_order: number | string;
-}
 
 export default function UsulanPage() {
   const [usulanList, setUsulanList] = useState<UsulanWithBarang[]>([]);
@@ -22,15 +15,12 @@ export default function UsulanPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // STATE PAGINASI & ROWS PER PAGE
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // State Modal Form + Tambah / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Form Fields
   const [noSpo, setNoSpo] = useState("");
   const [namaOrder, setNamaOrder] = useState("");
   const [namaPemesan, setNamaPemesan] = useState("");
@@ -38,6 +28,46 @@ export default function UsulanPage() {
   const [jumlahOrder, setJumlahOrder] = useState<number | "">("");
   const [jumlahKedatangan, setJumlahKedatangan] = useState<number | "">(0);
   const [keterangan, setKeterangan] = useState("");
+
+  // State untuk lebar kolom interaktif
+  const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
+    no_spo: 140,
+    nama_order: 220,
+    nama_pemesan: 200,
+    barang: 240,
+    jumlah_order: 140,
+    kedatangan: 140,
+    keterangan: 200,
+    aksi: 130,
+  });
+
+  const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  const startResizing = (key: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = {
+      key,
+      startX: e.clientX,
+      startWidth: columnWidths[key] || 150,
+    };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const { key, startX, startWidth } = resizingRef.current;
+      const diff = moveEvent.clientX - startX;
+      const newWidth = Math.max(80, startWidth + diff);
+      setColumnWidths((prev) => ({ ...prev, [key]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      resizingRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -69,7 +99,6 @@ export default function UsulanPage() {
     void loadData();
   }, [loadData]);
 
-  // FUNGSI XLOOKUP LANGSUNG KE SUPABASE
   const executeXLookup = async (val: string) => {
     const cleanVal = val.trim();
     if (!cleanVal) {
@@ -106,7 +135,6 @@ export default function UsulanPage() {
     setNoSpo(val);
   };
 
-  // SARAN UNIK NAMA PEMESAN
   const pemesanSuggestions = useMemo(() => {
     const set = new Set<string>();
     usulanList.forEach((item) => {
@@ -221,7 +249,6 @@ export default function UsulanPage() {
     );
   }, [usulanList, search]);
 
-  // PAGINATION SLICE
   const totalPages = Math.ceil(filteredUsulan.length / pageSize) || 1;
   const paginatedUsulan = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -239,7 +266,6 @@ export default function UsulanPage() {
       <div className="space-y-6 w-full min-w-0">
         {error ? <Alert tone="error">{error}</Alert> : null}
 
-        {/* HEADER AKSI & PENCARIAN */}
         <Card className="p-0 overflow-hidden w-full min-w-0">
           <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white">
             <div className="w-full sm:w-80">
@@ -252,7 +278,6 @@ export default function UsulanPage() {
             <Button onClick={openCreateModal}>+ Tambah Inputan</Button>
           </div>
 
-          {/* TABEL INPUTAN */}
           {loading ? (
             <div className="p-8 text-center text-sm text-slate-500">Memuat data inputan...</div>
           ) : filteredUsulan.length === 0 ? (
@@ -265,73 +290,49 @@ export default function UsulanPage() {
           ) : (
             <>
               <div className="overflow-x-auto w-full p-4 bg-white">
-                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700">
-                  <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700">
+                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700 table-fixed">
+                  <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700 select-none">
                     <tr>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
-                          NO SPO
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[220px] text-center select-none">
-                          NAMA ORDER
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[200px] text-center select-none">
-                          NAMA PEMESAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[240px] text-center select-none">
-                          BARANG TITIPAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
-                          JUMLAH ORDER
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
-                          KEDATANGAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[200px] text-center select-none">
-                          KETERANGAN
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
-                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
-                        <div className="px-4 py-3 min-w-[130px] text-center select-none">
-                          AKSI
-                        </div>
-                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
-                      </th>
+                      {[
+                        { key: "no_spo", label: "NO SPO" },
+                        { key: "nama_order", label: "NAMA ORDER" },
+                        { key: "nama_pemesan", label: "NAMA PEMESAN" },
+                        { key: "barang", label: "BARANG TITIPAN" },
+                        { key: "jumlah_order", label: "JUMLAH ORDER" },
+                        { key: "kedatangan", label: "KEDATANGAN" },
+                        { key: "keterangan", label: "KETERANGAN" },
+                        { key: "aksi", label: "AKSI" },
+                      ].map((col) => (
+                        <th
+                          key={col.key}
+                          style={{ width: columnWidths[col.key] }}
+                          className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors"
+                        >
+                          <div className="px-4 py-3 text-center truncate">
+                            {col.label}
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(col.key, e)}
+                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent group-hover:bg-emerald-500 transition-colors"
+                          />
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white">
                     {paginatedUsulan.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50 transition">
-                        <td className="border border-slate-300 px-4 py-3 font-semibold text-slate-900 whitespace-normal break-words font-mono">
+                        <td className="border border-slate-300 px-4 py-3 font-semibold text-slate-900 truncate font-mono">
                           {item.no_spo}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 font-medium text-slate-800 whitespace-normal break-words">
+                        <td className="border border-slate-300 px-4 py-3 font-medium text-slate-800 truncate">
                           {item.nama_order}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-slate-800 font-medium whitespace-normal break-words">
+                        <td className="border border-slate-300 px-4 py-3 text-slate-800 font-medium truncate">
                           {item.nama_pemesan || "-"}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 whitespace-normal break-words">
-                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5 mb-1">
+                        <td className="border border-slate-300 px-4 py-3 truncate">
+                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
                             {item.master_barang_titipan?.kode_barang || "-"}
                           </span>
                           <span className="text-slate-700">
@@ -344,7 +345,7 @@ export default function UsulanPage() {
                         <td className="border border-slate-300 px-4 py-3 text-right font-medium text-emerald-700 whitespace-nowrap">
                           {item.jumlah_kedatangan.toLocaleString("id-ID")}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-slate-600 whitespace-normal break-words">
+                        <td className="border border-slate-300 px-4 py-3 text-slate-600 truncate">
                           {item.keterangan || "-"}
                         </td>
                         <td className="border border-slate-300 px-4 py-3 text-center whitespace-nowrap">
@@ -372,7 +373,6 @@ export default function UsulanPage() {
                 </table>
               </div>
 
-              {/* FOOTER PAGINASI */}
               <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 text-xs text-slate-600">
                 <div className="flex items-center gap-2">
                   <span>Tampilkan:</span>
@@ -419,7 +419,6 @@ export default function UsulanPage() {
         </Card>
       </div>
 
-      {/* POP-UP MODAL FORM TAMBAH / UBAH INPUTAN */}
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl space-y-4">
@@ -449,9 +448,6 @@ export default function UsulanPage() {
                     Cari SPO
                   </Button>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  *Ketik No SPO lalu klik tombol &quot;Cari SPO&quot;.
-                </p>
               </div>
 
               <div>
@@ -539,7 +535,7 @@ export default function UsulanPage() {
                   KETERANGAN
                 </label>
                 <Input
-                  placeholder="Contoh: Sudah di GBJ / Sudah di bon Penyelesaian"
+                  placeholder="Contoh: Sudah di GBJ"
                   value={keterangan}
                   onChange={(e) => setKeterangan(e.target.value)}
                 />
