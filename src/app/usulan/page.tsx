@@ -80,11 +80,16 @@ export default function UsulanPage() {
   // FUNGSI XLOOKUP OTOMATIS BERDASARKAN NO SPO
   const handleNoSpoChange = async (val: string) => {
     setNoSpo(val);
-    if (!val.trim()) return;
+    if (!val.trim()) {
+      setNamaOrder("");
+      setNamaPemesan("");
+      setJumlahOrder("");
+      return;
+    }
 
-    // Cari langsung di data list yang sudah diload, atau query ke supabase jika ingin pas akurat
+    // 1. Cari langsung di list master SPO yang sudah diload
     const found = masterSpoList.find(
-      (item) => item.no_spo.toLowerCase() === val.trim().toLowerCase()
+      (item) => item.no_spo?.toLowerCase().trim() === val.toLowerCase().trim()
     );
 
     if (found) {
@@ -92,7 +97,7 @@ export default function UsulanPage() {
       setNamaPemesan(found.nama_pemesan || "");
       setJumlahOrder(found.jumlah_order || "");
     } else {
-      // Jika diketik manual dan tidak ada di master, coba fetch langsung
+      // 2. Jika diketik manual dan tidak ada di list memori, query langsung ke Supabase
       const { data } = await supabase
         .from("master_spo")
         .select("*")
@@ -103,6 +108,10 @@ export default function UsulanPage() {
         setNamaOrder(data.nama_order || "");
         setNamaPemesan(data.nama_pemesan || "");
         setJumlahOrder(data.jumlah_order || "");
+      } else {
+        setNamaOrder("");
+        setNamaPemesan("");
+        setJumlahOrder("");
       }
     }
   };
@@ -508,19 +517,19 @@ export default function UsulanPage() {
                   />
                 </div>
                 <div>
-  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-    KEDATANGAN BARANG
-  </label>
-  <Input
-    type="number"
-    min={0}
-    placeholder="0"
-    value={jumlahKedatangan}
-    onChange={(e) =>
-      setJumlahKedatangan(e.target.value === "" ? "" : Number(e.target.value))
-    }
-  />
-</div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    KEDATANGAN BARANG
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    value={jumlahKedatangan}
+                    onChange={(e) =>
+                      setJumlahKedatangan(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                  />
+                </div>
               </div>
 
               <div>
