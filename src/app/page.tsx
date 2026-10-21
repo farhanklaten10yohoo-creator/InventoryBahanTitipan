@@ -117,7 +117,6 @@ export default function DashboardPage() {
       alert("Tidak ada data untuk diekspor.");
       return;
     }
-
     const dataToExport = filteredData.map((item, index) => ({
       No: index + 1,
       "No SPO": item.no_spo,
@@ -129,11 +128,9 @@ export default function DashboardPage() {
       "Kedatangan": item.total_kedatangan,
       "Kekurangan": item.kekurangan,
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Titipan");
-
     const dateStr = new Date().toISOString().split("T")[0];
     XLSX.writeFile(workbook, `Rekap_Barang_Titipan_${dateStr}.xlsx`);
   };
@@ -222,40 +219,47 @@ export default function DashboardPage() {
                 <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700">
                   <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700">
                     <tr>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[140px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
                           NO SPO
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[220px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[220px] text-center select-none">
                           NAMA ORDER
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[200px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[200px] text-center select-none">
                           NAMA PEMESAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[240px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[240px] text-center select-none">
                           NAMA / KODE BARANG
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[150px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[150px] text-center select-none">
                           JUMLAH ORDER
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[140px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
                           KEDATANGAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[140px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
                           KEKURANGAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
                     </tr>
                   </thead>
@@ -318,7 +322,6 @@ export default function DashboardPage() {
                     <strong>{filteredData.length}</strong> data
                   </span>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -328,11 +331,9 @@ export default function DashboardPage() {
                   >
                     Sebelumnya
                   </Button>
-
                   <span className="font-semibold text-slate-700">
                     Halaman {currentPage} dari {totalPages}
                   </span>
-
                   <Button
                     variant="outline"
                     disabled={currentPage >= totalPages}

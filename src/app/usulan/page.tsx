@@ -17,7 +17,6 @@ interface MasterSpo {
 export default function UsulanPage() {
   const [usulanList, setUsulanList] = useState<UsulanWithBarang[]>([]);
   const [masterList, setMasterList] = useState<MasterBarang[]>([]);
-  const [masterSpoList, setMasterSpoList] = useState<MasterSpo[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,7 +42,7 @@ export default function UsulanPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [resUsulan, resMaster, resSpo] = await Promise.all([
+    const [resUsulan, resMaster] = await Promise.all([
       supabase
         .from("usulan_barang_titipan")
         .select("*, master_barang_titipan(*)")
@@ -52,11 +51,6 @@ export default function UsulanPage() {
         .from("master_barang_titipan")
         .select("*")
         .order("nama_bahan", { ascending: true }),
-      supabase
-        .from("master_spo")
-        .select("no_spo, nama_order, nama_pemesan, jumlah_order")
-        .order("no_spo", { ascending: true })
-        .limit(2000),
     ]);
 
     if (resUsulan.error) {
@@ -67,12 +61,6 @@ export default function UsulanPage() {
     if (resMaster.data) {
       setMasterList(resMaster.data as MasterBarang[]);
     }
-    if (resSpo.error) {
-      console.error("Gagal load master_spo:", resSpo.error);
-    } else if (resSpo.data) {
-      console.log("Berhasil load master_spo total:", resSpo.data.length);
-      setMasterSpoList((resSpo.data ?? []) as MasterSpo[]);
-    }
 
     setLoading(false);
   }, []);
@@ -81,7 +69,7 @@ export default function UsulanPage() {
     void loadData();
   }, [loadData]);
 
-  // FUNGSI XLOOKUP DENGAN ALERT DEBUGGING JIKA TIDAK KETEMU
+  // FUNGSI XLOOKUP LANGSUNG KE SUPABASE
   const executeXLookup = async (val: string) => {
     const cleanVal = val.trim();
     if (!cleanVal) {
@@ -89,22 +77,6 @@ export default function UsulanPage() {
       return;
     }
 
-    console.log("Mencari No SPO:", cleanVal);
-
-    // 1. Cari di memori lokal masterSpoList
-    const found = masterSpoList.find(
-      (item) => item.no_spo && item.no_spo.trim().toUpperCase() === cleanVal.toUpperCase()
-    );
-
-    if (found) {
-      console.log("Ditemukan di memori lokal:", found);
-      setNamaOrder(found.nama_order || "");
-      setNamaPemesan(found.nama_pemesan || "");
-      setJumlahOrder(found.jumlah_order !== undefined ? Number(found.jumlah_order) : "");
-      return;
-    }
-
-    // 2. Jika tidak ada di lokal, tembak langsung ke Supabase menggunakan ilike agar fleksibel
     const { data, error } = await supabase
       .from("master_spo")
       .select("*")
@@ -114,12 +86,11 @@ export default function UsulanPage() {
 
     if (error) {
       console.error("Supabase error:", error);
-      alert(`Error database: ${error.message}`);
+      alert(`Error database: ${error.message}. Periksa RLS tabel master_spo.`);
       return;
     }
 
     if (data) {
-      console.log("Ditemukan via Supabase query:", data);
       setNamaOrder(data.nama_order || "");
       setNamaPemesan(data.nama_pemesan || "");
       setJumlahOrder(data.jumlah_order !== undefined ? Number(data.jumlah_order) : "");
@@ -297,45 +268,53 @@ export default function UsulanPage() {
                 <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700">
                   <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700">
                     <tr>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[140px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
                           NO SPO
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[220px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[220px] text-center select-none">
                           NAMA ORDER
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[200px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[200px] text-center select-none">
                           NAMA PEMESAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[240px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[240px] text-center select-none">
                           BARANG TITIPAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[140px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
                           JUMLAH ORDER
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[140px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[140px] text-center select-none">
                           KEDATANGAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[200px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[200px] text-center select-none">
                           KETERANGAN
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
-                      <th className="border border-slate-300 p-0 text-center">
-                        <div className="resize-x overflow-auto px-4 py-3 min-w-[130px] text-center">
+                      <th className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors">
+                        <div className="px-4 py-3 min-w-[130px] text-center select-none">
                           AKSI
                         </div>
+                        <div className="absolute right-0 top-0 bottom-0 w-1 bg-transparent group-hover:bg-emerald-500 transition-colors pointer-events-none" />
                       </th>
                     </tr>
                   </thead>
@@ -456,7 +435,7 @@ export default function UsulanPage() {
                   <div className="flex-1">
                     <Input
                       required
-                      placeholder="Ketik No SPO (misal: 004/EKS/10/2026)..."
+                      placeholder="Ketik No SPO (misal: 001/EKS/10/2026)..."
                       value={noSpo}
                       onChange={(e) => handleNoSpoChange(e.target.value)}
                     />
@@ -471,7 +450,7 @@ export default function UsulanPage() {
                   </Button>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  *Ketik No SPO lalu klik tombol &quot;Cari SPO&quot; di sampingnya.
+                  *Ketik No SPO lalu klik tombol &quot;Cari SPO&quot;.
                 </p>
               </div>
 
