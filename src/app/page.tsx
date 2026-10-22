@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { AppShell } from "@/components/app-shell";
+import { PageBanner } from "@/components/page-banner"; // Memanggil page banner buatanmu
 import { Alert, Button, Card, EmptyState, Input } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { UsulanWithBarang } from "@/lib/types";
@@ -167,23 +168,16 @@ export default function DashboardPage() {
   };
 
   return (
-    <AppShell
-      title="Dashboard Rekap Data"
-      subtitle="Ringkasan inputan barang titipan, akumulasi kekurangan, dan pencarian cepat."
-    >
+    <AppShell title="" subtitle="">
       <div className="space-y-6 w-full min-w-0">
         
-        {/* HEADER / JUDUL HALAMAN BERGRADASI BIRU LEMBUT KE KANAN & CENTER */}
-        <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-400 text-white shadow-md">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Dashboard Rekap Data
-          </h1>
-          <p className="mt-1.5 text-xs sm:text-sm text-blue-50 font-medium">
-            Ringkasan inputan barang titipan, akumulasi kekurangan, dan pencarian cepat.
-          </p>
-        </div>
+        {/* MEMANGGIL PAGE BANNER BUATANMU */}
+        <PageBanner
+          title="Dashboard Rekap Data"
+          subtitle="Ringkasan inputan barang titipan, akumulasi kekurangan, dan pencarian cepat."
+        />
 
-        {/* CARD RINGKASAN (KARTU KEKURANGAN KUSTOM WARNA CREAM LEBIH TEBAL & ANGKA MERAH) */}
+        {/* CARD RINGKASAN (KARTU KEKURANGAN WARNA BACKGROUND #ffdbc4) */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="p-5 bg-white shadow-sm border border-slate-200">
             <p className="text-sm font-medium text-slate-500">Total SPO / Inputan</p>
@@ -202,13 +196,13 @@ export default function DashboardPage() {
             </p>
           </Card>
           
-          {/* KARTU KEKURANGAN: CREAM LEBIH TEBAL & ANGKA MERAH */}
-          <Card className="p-5 bg-[#F7F2E8] shadow-md border border-[#EBE3D0]">
-            <p className="text-sm font-semibold text-slate-700">Kekurangan</p>
+          {/* KARTU KEKURANGAN: BACKGROUND #ffdbc4 & ANGKA MERAH */}
+          <Card className="p-5 shadow-md border border-[#f0c3ab]" style={{ backgroundColor: "#ffdbc4" }}>
+            <p className="text-sm font-semibold text-slate-800">Kekurangan</p>
             <p className="mt-2 text-3xl font-extrabold text-rose-600">
               {totalKekurangan.toLocaleString("id-ID")}
             </p>
-            <p className="mt-1 text-xs font-medium text-slate-600">
+            <p className="mt-1 text-xs font-medium text-slate-700">
               {groupedData.filter((i) => i.kekurangan > 0).length} SPO masih ada kekurangan
             </p>
           </Card>
@@ -216,12 +210,12 @@ export default function DashboardPage() {
 
         {error ? <Alert tone="error">{error}</Alert> : null}
 
-        {/* TABEL UTAMA DENGAN BACKGROUND CREAMY DAN EFEK 3D/SHADOW */}
-        <Card className="p-0 overflow-hidden w-full min-w-0 shadow-lg border border-slate-200/80 rounded-2xl">
-          <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#FAF7F0]">
+        {/* TABEL UTAMA DENGAN BACKGROUND #fff3df SEISI KARTU & HEADER LEBIH TUA */}
+        <div className="p-0 overflow-hidden w-full min-w-0 shadow-lg border border-[#e8d2b7] rounded-2xl" style={{ backgroundColor: "#fff3df" }}>
+          <div className="p-5 border-b border-[#e8d2b7] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Rekap Inputan</h2>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-700">
                 Kekurangan dihitung otomatis dari jumlah order dikurangi akumulasi kedatangan barang.
               </p>
             </div>
@@ -248,9 +242,9 @@ export default function DashboardPage() {
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-slate-500 bg-[#FDFBF7]">Memuat rekap data...</div>
+            <div className="p-8 text-center text-sm text-slate-500">Memuat rekap data...</div>
           ) : filteredData.length === 0 ? (
-            <div className="p-8 bg-[#FDFBF7]">
+            <div className="p-8">
               <EmptyState
                 title="Tidak ada data rekap"
                 text={search ? "Tidak ada inputan yang cocok dengan pencarian." : "Belum ada inputan barang yang dicatat."}
@@ -258,10 +252,10 @@ export default function DashboardPage() {
             </div>
           ) : (
             <>
-              {/* ISI TABEL DENGAN BACKGROUND CREAMY LEMBUT */}
-              <div className="overflow-x-auto w-full p-4 bg-[#FDFBF7]">
-                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-800 table-fixed shadow-sm">
-                  <thead className="bg-[#F2ECE1] text-xs font-bold uppercase text-slate-700 select-none">
+              {/* TABEL DENGAN BACKGROUND KESELURUHAN #fff3df DAN HEADER LEBIH TUA (#eac8a7) */}
+              <div className="overflow-x-auto w-full p-4">
+                <table className="w-full border-collapse border border-[#d9b896] text-left text-sm text-slate-800 table-fixed shadow-sm">
+                  <thead className="text-xs font-bold uppercase text-slate-900 select-none" style={{ backgroundColor: "#eac8a7" }}>
                     <tr>
                       {[
                         { key: "no_spo", label: "NO SPO" },
@@ -275,47 +269,47 @@ export default function DashboardPage() {
                         <th
                           key={col.key}
                           style={{ width: columnWidths[col.key] }}
-                          className="border border-slate-300 p-0 text-center relative group hover:border-emerald-500 transition-colors"
+                          className="border border-[#d9b896] p-0 text-center relative group hover:border-emerald-600 transition-colors"
                         >
                           <div className="px-4 py-3 text-center truncate">
                             {col.label}
                           </div>
                           <div
                             onMouseDown={(e) => startResizing(col.key, e)}
-                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent group-hover:bg-emerald-500 transition-colors"
+                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent group-hover:bg-emerald-600 transition-colors"
                           />
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-[#FDFBF7]">
+                  <tbody style={{ backgroundColor: "#fff3df" }}>
                     {paginatedData.map((item) => (
-                      <tr key={item.no_spo} className="hover:bg-[#F5EEDC] transition">
-                        <td className="border border-slate-300 px-4 py-3 font-semibold text-slate-900 truncate font-mono">
+                      <tr key={item.no_spo} className="hover:bg-[#fce6c9] transition">
+                        <td className="border border-[#d9b896] px-4 py-3 font-semibold text-slate-900 truncate font-mono">
                           {item.no_spo}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 font-medium text-slate-800 truncate">
+                        <td className="border border-[#d9b896] px-4 py-3 font-medium text-slate-800 truncate">
                           {item.nama_order}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-slate-800 font-medium truncate">
+                        <td className="border border-[#d9b896] px-4 py-3 text-slate-800 font-medium truncate">
                           {item.nama_pemesan}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 truncate">
-                          <span className="inline-block rounded bg-white border border-slate-300 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5 shadow-2xs">
+                        <td className="border border-[#d9b896] px-4 py-3 truncate">
+                          <span className="inline-block rounded bg-white/80 border border-[#d9b896] px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
                             {item.kode_barang}
                           </span>
                           <span className="text-slate-700">{item.nama_bahan}</span>
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
+                        <td className="border border-[#d9b896] px-4 py-3 text-right font-medium text-slate-900 whitespace-nowrap">
                           {item.jumlah_order.toLocaleString("id-ID")}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-right font-medium text-emerald-700 whitespace-nowrap">
+                        <td className="border border-[#d9b896] px-4 py-3 text-right font-medium text-emerald-800 whitespace-nowrap">
                           {item.total_kedatangan.toLocaleString("id-ID")}
                         </td>
-                        <td className="border border-slate-300 px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                        <td className="border border-[#d9b896] px-4 py-3 text-right font-bold text-slate-900 whitespace-nowrap">
                           <span
                             className={`inline-block px-2 py-0.5 rounded text-xs ${
-                              item.kekurangan > 0 ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"
+                              item.kekurangan > 0 ? "bg-amber-200 text-amber-900" : "bg-emerald-200 text-emerald-900"
                             }`}
                           >
                             {item.kekurangan.toLocaleString("id-ID")}
@@ -328,13 +322,13 @@ export default function DashboardPage() {
               </div>
 
               {/* FOOTER PAGINASI */}
-              <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#FAF7F0] text-xs text-slate-600">
+              <div className="p-4 border-t border-[#e8d2b7] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-700">
                 <div className="flex items-center gap-2">
                   <span>Tampilkan:</span>
                   <select
                     value={pageSize}
                     onChange={(e) => setPageSize(Number(e.target.value))}
-                    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
+                    className="rounded border border-[#d9b896] bg-white px-2 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
                   >
                     <option value={5}>5 baris</option>
                     <option value={10}>10 baris</option>
@@ -356,7 +350,7 @@ export default function DashboardPage() {
                   >
                     Sebelumnya
                   </Button>
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-slate-800">
                     Halaman {currentPage} dari {totalPages}
                   </span>
                   <Button
@@ -371,7 +365,7 @@ export default function DashboardPage() {
               </div>
             </>
           )}
-        </Card>
+        </div>
       </div>
     </AppShell>
   );
