@@ -9,25 +9,18 @@ import { supabase } from "@/lib/supabase";
 import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
 import { explainError, toNumber } from "@/lib/utils";
 
-type MasterSpo = {
-  no_spo: string;
-  nama_pemesan: string;
-  nama_order: string;
-  jumlah_order: number;
-};
-
 export default function UsulanPage() {
   const [rows, setRows] = useState<UsulanWithBarang[]>([]);
   const [masterBarang, setMasterBarang] = useState<MasterBarang[]>([]);
-  const [masterSpoList, setMasterSpoList] = useState<MasterSpo[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("Data inputan barang titipan berhasil disimpan.");
-
-  // State Modal Form Tambah
+  
+  // State Modal Form Tambah / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [noSpo, setNoSpo] = useState("");
   const [namaOrder, setNamaOrder] = useState("");
   const [namaPemesan, setNamaPemesan] = useState("");
@@ -36,19 +29,23 @@ export default function UsulanPage() {
   const [jumlahKedatangan, setJumlahKedatangan] = useState("");
   const [keterangan, setKeterangan] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [searchingSpo, setSearchingSpo] = useState(false);
+
+  // Ref untuk tombol Cari SPO agar bisa memicu animasi klik
+  const searchButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Paginasi & Resizing Kolom
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
-
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
     no_spo: 140,
-    nama_order: 200,
-    nama_pemesan: 180,
-    barang: 220,
-    jumlah_order: 140,
-    kedatangan: 130,
-    keterangan: 160,
+    nama_order: 190,
+    nama_pemesan: 170,
+    barang: 210,
+    jumlah_order: 120,
+    kedatangan: 120,
+    keterangan: 140,
+    aksi: 130,
   });
 
   const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
@@ -60,7 +57,6 @@ export default function UsulanPage() {
       startX: e.clientX,
       startWidth: columnWidths[key] || 150,
     };
-
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!resizingRef.current) return;
       const { key, startX, startWidth } = resizingRef.current;
@@ -68,13 +64,11 @@ export default function UsulanPage() {
       const newWidth = Math.max(80, startWidth + diff);
       setColumnWidths((prev) => ({ ...prev, [key]: newWidth }));
     };
-
     const onMouseUp = () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
       resizingRef.current = null;
     };
-
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
   };
@@ -82,11 +76,9 @@ export default function UsulanPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
-
-    const [usulanRes, masterBarangRes, masterSpoRes] = await Promise.all([
+    const [usulanRes, masterBarangRes] = await Promise.all([
       supabase.from("usulan_barang_titipan").select("*, master_barang_titipan(*)").order("created_at", { ascending: false }),
       supabase.from("master_barang_titipan").select("*").order("kode_barang", { ascending: true }),
-      supabase.from("master_spo").select("no_spo, nama_pemesan, nama_order, jumlah_order"),
     ]);
 
     if (usulanRes.error) {
@@ -94,15 +86,9 @@ export default function UsulanPage() {
     } else {
       setRows((usulanRes.data ?? []) as UsulanWithBarang[]);
     }
-
     if (masterBarangRes.data) {
       setMasterBarang(masterBarangRes.data as MasterBarang[]);
     }
-
-    if (masterSpoRes.data) {
-      setMasterSpoList(masterSpoRes.data as MasterSpo[]);
-    }
-
     setLoading(false);
   }, []);
 
@@ -114,19 +100,73 @@ export default function UsulanPage() {
     setCurrentPage(1);
   }, [search, pageSize]);
 
-  // FUNGSI XLOOKUP OTOMATIS DARI TABEL master_spo
-  const handleNoSpoChange = (val: string) => {
-    setNoSpo(val);
-    if (!val.trim()) return;
+  // Tombol Cari SPO Manual & Enter Trigger
+  const handleSearchSpo = async () => {
+    if (!noSpo.trim()) {
+      alert("Masukkan No SPO terlebih dahulu.");
+      return;
+    }
+    setSearchingSpo(true);
+    const { data, error: queryError } = await supabase
+      .from("master_spo")
+      .select("nama_pemesan, nama_order, jumlah_order")
+      .ilike("no_spo", noSpo.trim())
+      .maybeSingle();
 
-    // Cari data di master_spo berdasarkan no_spo
-    const found = masterSpoList.find((item) => item.no_spo.trim().toLowerCase() === val.trim().toLowerCase());
-    if (found) {
-      if (found.nama_order) setNamaOrder(found.nama_order);
-      if (found.nama_pemesan) setNamaPemesan(found.nama_pemesan);
-      if (found.jumlah_order !== undefined && found.jumlah_order !== null) {
-        setJumlahOrder(found.jumlah_order.toString());
+    setSearchingSpo(false);
+    if (queryError) {
+      alert("Terjadi kesalahan saat mencari No SPO.");
+      return;
+    }
+    if (data) {
+      if (data.nama_order) setNamaOrder(data.nama_order);
+      if (data.nama_pemesan) setNamaPemesan(data.nama_pemesan);
+      if (data.jumlah_order !== undefined && data.jumlah_order !== null) {
+        setJumlahOrder(data.jumlah_order.toString());
       }
+      alert("Data SPO berhasil ditemukan dan dimuat!");
+    } else {
+      alert("No SPO tidak ditemukan di database master_spo.");
+    }
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingId(null);
+    setNoSpo("");
+    setNamaOrder("");
+    setNamaPemesan("");
+    setMasterBarangId("");
+    setJumlahOrder("");
+    setJumlahKedatangan("");
+    setKeterangan("");
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (item: UsulanWithBarang) => {
+    setEditingId(item.id);
+    setNoSpo(item.no_spo);
+    setNamaOrder(item.nama_order || "");
+    setNamaPemesan(item.nama_pemesan || "");
+    setMasterBarangId(item.master_barang_id ? item.master_barang_id.toString() : "");
+    setJumlahOrder(item.jumlah_order ? item.jumlah_order.toString() : "");
+    setJumlahKedatangan(item.jumlah_kedatangan ? item.jumlah_kedatangan.toString() : "");
+    setKeterangan(item.keterangan || "");
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus data inputan ini?")) return;
+    const { error: deleteError } = await supabase
+      .from("usulan_barang_titipan")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      alert("Gagal menghapus data: " + deleteError.message);
+    } else {
+      setSuccessMessage("Data inputan berhasil dihapus.");
+      setSuccessModalOpen(true);
+      void loadData();
     }
   };
 
@@ -158,34 +198,39 @@ export default function UsulanPage() {
       alert("No SPO dan Barang Titipan wajib diisi.");
       return;
     }
-
     setSubmitting(true);
     setError("");
 
-    const { error: insertError } = await supabase.from("usulan_barang_titipan").insert({
-      no_spo: noSpo.trim(),
+    const payload = {
+      no_spo: noSpo.trim().toUpperCase(),
       nama_order: namaOrder.trim(),
       nama_pemesan: namaPemesan.trim(),
       master_barang_id: Number(masterBarangId),
       jumlah_order: toNumber(jumlahOrder),
       jumlah_kedatangan: toNumber(jumlahKedatangan),
       keterangan: keterangan.trim(),
-    });
+    };
+
+    let queryError = null;
+    if (editingId) {
+      const { error } = await supabase
+        .from("usulan_barang_titipan")
+        .update(payload)
+        .eq("id", editingId);
+      queryError = error;
+    } else {
+      const { error } = await supabase
+        .from("usulan_barang_titipan")
+        .insert(payload);
+      queryError = error;
+    }
 
     setSubmitting(false);
-
-    if (insertError) {
-      setError(explainError(insertError.message));
+    if (queryError) {
+      setError(explainError(queryError.message));
     } else {
       setIsModalOpen(false);
-      setNoSpo("");
-      setNamaOrder("");
-      setNamaPemesan("");
-      setMasterBarangId("");
-      setJumlahOrder("");
-      setJumlahKedatangan("");
-      setKeterangan("");
-      setSuccessMessage("Data inputan barang titipan berhasil ditambahkan.");
+      setSuccessMessage(editingId ? "Data inputan berhasil diperbarui." : "Data inputan barang titipan berhasil ditambahkan.");
       setSuccessModalOpen(true);
       void loadData();
     }
@@ -198,21 +243,20 @@ export default function UsulanPage() {
         {/* PAGE BANNER */}
         <PageBanner
           title="Input Barang Titipan"
-          subtitle="Input transaksi usulan, catat kedatangan barang, dan kelola riwayat order."
+          subtitle="Input Kedatangan Barang, dan Kelola Riwayat Inputan Barang Titipan."
         />
 
         {error ? <Alert tone="error">{error}</Alert> : null}
 
-        {/* TABEL UTAMA */}
-        <div className="p-0 overflow-hidden w-full min-w-0 shadow-lg border border-slate-200 rounded-2xl bg-white">
+        {/* TABEL UTAMA DENGAN BACKGROUND KARTU #FFFDF2 */}
+        <div className="p-0 overflow-hidden w-full min-w-0 shadow-lg border border-slate-200 rounded-2xl bg-[#FFFDF2]">
           <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Daftar Transaksi Inputan</h2>
+              <h2 className="text-lg font-bold text-slate-900">Daftar Input Barang Titipan</h2>
               <p className="text-xs text-slate-500">
-                Kelola data usulan dan pantau kedatangan barang titipan di sini.
+                Kelola data inputan barang titipan di sini.
               </p>
             </div>
-
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="w-full sm:w-72">
                 <Input
@@ -221,9 +265,13 @@ export default function UsulanPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Button onClick={() => setIsModalOpen(true)}>
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition whitespace-nowrap"
+              >
                 + Tambah Inputan
-              </Button>
+              </button>
             </div>
           </div>
 
@@ -239,8 +287,8 @@ export default function UsulanPage() {
           ) : (
             <>
               <div className="overflow-x-auto w-full p-4">
-                <table className="w-full border-collapse border border-slate-200 text-left text-sm text-slate-800 table-fixed shadow-sm">
-                  <thead className="bg-slate-100 text-xs font-bold uppercase text-slate-700 select-none">
+                <table className="w-full border-collapse border border-slate-900 text-left text-sm text-slate-900 table-fixed shadow-sm">
+                  <thead className="bg-slate-200 text-xs font-bold uppercase text-slate-900 select-none">
                     <tr>
                       {[
                         { key: "no_spo", label: "NO SPO" },
@@ -250,11 +298,12 @@ export default function UsulanPage() {
                         { key: "jumlah_order", label: "JUMLAH ORDER" },
                         { key: "kedatangan", label: "KEDATANGAN" },
                         { key: "keterangan", label: "KETERANGAN" },
+                        { key: "aksi", label: "AKSI" },
                       ].map((col) => (
                         <th
                           key={col.key}
                           style={{ width: columnWidths[col.key] }}
-                          className="border border-slate-200 p-0 text-center relative group hover:border-emerald-600 transition-colors"
+                          className="border border-slate-900 p-0 text-center relative group hover:border-emerald-600 transition-colors"
                         >
                           <div className="px-4 py-3 text-center truncate">
                             {col.label}
@@ -267,36 +316,61 @@ export default function UsulanPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody>
-                    {paginatedData.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50 transition">
-                        <td className="border border-slate-200 px-4 py-3 font-semibold font-mono text-slate-900 truncate">
-                          {item.no_spo}
-                        </td>
-                        <td className="border border-slate-200 px-4 py-3 truncate">{item.nama_order || "-"}</td>
-                        <td className="border border-slate-200 px-4 py-3 truncate">{item.nama_pemesan || "-"}</td>
-                        <td className="border border-slate-200 px-4 py-3 truncate">
-                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
-                            {item.master_barang_titipan?.kode_barang || "-"}
-                          </span>
-                          <span className="text-slate-700">{item.master_barang_titipan?.nama_bahan || "-"}</span>
-                        </td>
-                        <td className="border border-slate-200 px-4 py-3 text-right font-medium whitespace-nowrap">
-                          {item.jumlah_order.toLocaleString("id-ID")}
-                        </td>
-                        <td className="border border-slate-200 px-4 py-3 text-right font-medium text-emerald-700 whitespace-nowrap">
-                          {item.jumlah_kedatangan.toLocaleString("id-ID")}
-                        </td>
-                        <td className="border border-slate-200 px-4 py-3 text-slate-600 truncate">
-                          {item.keterangan || "-"}
-                        </td>
-                      </tr>
-                    ))}
+                  <tbody className="divide-y divide-slate-900">
+                    {paginatedData.map((item, index) => {
+                      const rowBg = index % 2 === 0 ? "bg-[#FFFDF2]" : "bg-amber-100/60";
+                      return (
+                        <tr key={item.id} className="group transition hover:bg-amber-300">
+                          <td className={`border border-slate-900 px-4 py-3 font-semibold font-mono text-slate-900 uppercase truncate ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            {item.no_spo}
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 truncate ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            {item.nama_order || "-"}
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 truncate ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            {item.nama_pemesan || "-"}
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 truncate ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            <span className="inline-block rounded bg-white border border-slate-900 px-2 py-0.5 text-xs font-mono font-bold text-slate-900 mr-1.5">
+                              {item.master_barang_titipan?.kode_barang || "-"}
+                            </span>
+                            <span className="text-slate-900">{item.master_barang_titipan?.nama_bahan || "-"}</span>
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 text-right font-medium whitespace-nowrap ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            {item.jumlah_order.toLocaleString("id-ID")}
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 text-right font-medium text-emerald-800 whitespace-nowrap ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            {item.jumlah_kedatangan.toLocaleString("id-ID")}
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 text-slate-900 truncate ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            {item.keterangan || "-"}
+                          </td>
+                          <td className={`border border-slate-900 px-4 py-3 text-center whitespace-nowrap ${rowBg} group-hover:bg-inherit transition-colors`}>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item)}
+                                className="px-2.5 py-1 rounded bg-blue-100 border border-blue-300 hover:bg-blue-200 text-blue-900 text-xs font-semibold transition"
+                              >
+                                Ubah
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(item.id)}
+                                className="px-2.5 py-1 rounded bg-rose-100 border border-rose-300 hover:bg-rose-200 text-rose-900 text-xs font-semibold transition"
+                              >
+                                Hapus
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
-              {/* FOOTER PAGINASI & SELECT PAGE SIZE */}
+              {/* FOOTER PAGINASI */}
               <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
                 <div className="flex items-center gap-2">
                   <span>Tampilkan:</span>
@@ -342,12 +416,14 @@ export default function UsulanPage() {
           )}
         </div>
 
-        {/* MODAL FORM TAMBAH INPUTAN DENGAN FITUR XLOOKUP MASTER SPO */}
+        {/* MODAL FORM TAMBAH / EDIT */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
               <div className="p-5 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900">Tambah Inputan Barang Titipan</h3>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {editingId ? "Ubah Inputan Barang Titipan" : "Tambah Inputan Barang Titipan"}
+                </h3>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -361,29 +437,43 @@ export default function UsulanPage() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">No SPO *</label>
                   <div className="flex gap-2">
                     <Input
-                      list="list-spo"
-                      placeholder="Contoh: 001/EKS/10/2026"
+                      placeholder="Masukkan No SPO disini"
                       value={noSpo}
-                      onChange={(e) => handleNoSpoChange(e.target.value)}
+                      onChange={(e) => setNoSpo(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          // Memicu animasi klik visual pada tombol Cari SPO
+                          if (searchButtonRef.current) {
+                            searchButtonRef.current.classList.add("scale-95", "bg-emerald-800");
+                            setTimeout(() => {
+                              if (searchButtonRef.current) {
+                                searchButtonRef.current.classList.remove("scale-95", "bg-emerald-800");
+                              }
+                            }, 150);
+                          }
+                          void handleSearchSpo();
+                        }
+                      }}
                       required
                     />
-                    <datalist id="list-spo">
-                      {masterSpoList.map((spo) => (
-                        <option key={spo.no_spo} value={spo.no_spo}>
-                          {spo.nama_order ? `- ${spo.nama_order}` : ""}
-                        </option>
-                      ))}
-                    </datalist>
+                    {/* TOMBOL CARI SPO DENGAN REF DAN WARNA HIJAU */}
+                    <button
+                      ref={searchButtonRef}
+                      type="button"
+                      onClick={handleSearchSpo}
+                      disabled={searchingSpo}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition transform active:scale-95 whitespace-nowrap disabled:opacity-50"
+                    >
+                      {searchingSpo ? "Mencari..." : "Cari SPO"}
+                    </button>
                   </div>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    *Ketik atau pilih No SPO dari master untuk mengisi Nama Order, Pemesan, dan Jumlah Order otomatis.
-                  </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Order</label>
                     <Input
-                      placeholder="Contoh: Buku Hardcover"
+                      placeholder=""
                       value={namaOrder}
                       onChange={(e) => setNamaOrder(e.target.value)}
                     />
@@ -391,7 +481,7 @@ export default function UsulanPage() {
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Pemesan</label>
                     <Input
-                      placeholder="Nama pemesan / klien"
+                      placeholder=""
                       value={namaPemesan}
                       onChange={(e) => setNamaPemesan(e.target.value)}
                     />
@@ -408,7 +498,7 @@ export default function UsulanPage() {
                     <option value="">-- Pilih Barang dari Master --</option>
                     {masterBarang.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.kode_barang} - {item.nama_bahan} ({item.kategori})
+                        {item.kode_barang} - {item.nama_bahan} ({item.kategori_bahan || item.kategori})
                       </option>
                     ))}
                   </select>
@@ -419,7 +509,7 @@ export default function UsulanPage() {
                     <Input
                       type="number"
                       placeholder="0"
-                      value={jumlahOrder}
+                      value={jumlahOrder === "0" ? "" : jumlahOrder}
                       onChange={(e) => setJumlahOrder(e.target.value)}
                     />
                   </div>
@@ -428,7 +518,7 @@ export default function UsulanPage() {
                     <Input
                       type="number"
                       placeholder="0"
-                      value={jumlahKedatangan}
+                      value={jumlahKedatangan === "0" ? "" : jumlahKedatangan}
                       onChange={(e) => setJumlahKedatangan(e.target.value)}
                     />
                   </div>
@@ -449,9 +539,13 @@ export default function UsulanPage() {
                   >
                     Batal
                   </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Menyimpan..." : "Simpan Data"}
-                  </Button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition whitespace-nowrap disabled:opacity-50"
+                  >
+                    {submitting ? "Menyimpan..." : editingId ? "Perbarui Data" : "Simpan Data"}
+                  </button>
                 </div>
               </form>
             </div>
@@ -461,7 +555,7 @@ export default function UsulanPage() {
         <SuccessModal
           isOpen={successModalOpen}
           onClose={() => setSuccessModalOpen(false)}
-          title="Berhasil Disimpan!"
+          title="Berhasil!"
           message={successMessage}
         />
       </div>

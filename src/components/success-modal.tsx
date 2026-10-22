@@ -1,49 +1,62 @@
 "use client";
 
+import { useEffect } from "react";
+
 interface SuccessModalProps {
   isOpen: boolean;
-  message: string;
   onClose: () => void;
+  title: string;
+  message: string;
 }
 
-export function SuccessModal({ isOpen, message, onClose }: SuccessModalProps) {
+export function SuccessModal({ isOpen, onClose, title, message }: SuccessModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      // Menunda audio sedikit (misal 100 milidetik) agar pas dengan awal goresan centang
+      const timer = setTimeout(() => {
+        const audio = new Audio("/success-sound.mp3");
+        audio.volume = 0.5;
+        audio.play().catch((err) => {
+          console.log("Audio play blocked by browser:", err);
+        });
+      }, 100); // Sesuaikan angka milidetik ini (0 hingga 200) untuk ketepatan suara
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-center space-y-5 animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm animate-fadeIn">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-center space-y-4">
         
-        {/* Lingkaran Ikon Centang Animasi */}
-        <div className="flex justify-center">
-          <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center border-4 border-emerald-100">
-            <svg
-              className="w-10 h-10 text-emerald-600"
-              fill="none"
-              stroke="currentColor"
+        {/* ANIMASI CENTANG BERGERAK (DRAW-CHECK) */}
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+          <svg className="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
               strokeWidth="3"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-                className="animate-draw-check"
-              />
-            </svg>
-          </div>
+              d="M5 13l4 4L19 7"
+              style={{
+                strokeDasharray: 50,
+                strokeDashoffset: 0,
+                animation: "drawCheck 0.6s ease-in-out forwards",
+              }}
+            />
+          </svg>
         </div>
 
-        {/* Teks Pesan */}
-        <div className="space-y-1">
-          <h3 className="text-xl font-bold text-slate-900">Sukses</h3>
-          <p className="text-sm text-slate-600 px-2">{message}</p>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+          <p className="mt-1 text-xs text-slate-500">{message}</p>
         </div>
 
-        {/* Tombol OK */}
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md transition"
+          className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-2.5 text-xs font-semibold text-white shadow-sm transition"
         >
           OK
         </button>

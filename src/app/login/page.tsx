@@ -1,9 +1,8 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Alert, Button, Card, Input } from "@/components/ui";
+import { Alert, Card, Input } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,7 +15,6 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     const cleanUsername = username.trim().toLowerCase();
     const formattedEmail = cleanUsername.includes("@")
       ? cleanUsername
@@ -26,7 +24,6 @@ export default function LoginPage() {
       email: formattedEmail,
       password,
     });
-
     setLoading(false);
 
     if (loginError) {
@@ -45,20 +42,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 bg-white shadow-2xl rounded-2xl border-0 space-y-6">
         <div className="text-center space-y-2">
-        <div className="w-16 h-16 mx-auto flex items-center justify-center">
-  <img src="/Logo.png" alt="Logo" className="w-full h-full object-contain" />
-</div>
+          <div className="w-16 h-16 mx-auto flex items-center justify-center">
+            <img src="/Logo.png" alt="Logo" className="w-full h-full object-contain" />
+          </div>
           <h1 className="text-2xl font-bold text-slate-900">Inventory Titipan</h1>
           <p className="text-xs text-slate-500">
             Masukkan username dan password Anda untuk mengakses aplikasi
           </p>
         </div>
-
         {error ? <Alert tone="error">{error}</Alert> : null}
-
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
@@ -67,12 +62,11 @@ export default function LoginPage() {
             <Input
               type="text"
               required
-              placeholder="Contoh: admin"
+              placeholder="Masukkan Username yang Terdaftar"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
           </div>
-
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
               Password
@@ -85,12 +79,15 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-
-          <Button type="submit" className="w-full py-2.5" disabled={loading}>
+          {/* TOMBOL MASUK APLIKASI BERWARNA HIJAU */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
+          >
             {loading ? "Memproses Login..." : "Masuk Aplikasi"}
-          </Button>
+          </button>
         </form>
-
         <div className="text-center text-xs text-slate-400 pt-2 border-t border-slate-100">
           Progam By Farhan &copy; 2026
         </div>
