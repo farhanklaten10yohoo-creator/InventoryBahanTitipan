@@ -4,14 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PageBanner } from "@/components/page-banner";
 import { SuccessModal } from "@/components/success-modal";
-import { Alert, Button, Card, EmptyState, Input } from "@/components/ui";
+import { Alert, Button, EmptyState, Input } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
 import { explainError, toNumber } from "@/lib/utils";
 
+type MasterSpo = {
+  no_spo: string;
+  nama_pemesan: string;
+  nama_order: string;
+  jumlah_order: number;
+};
+
 export default function UsulanPage() {
   const [rows, setRows] = useState<UsulanWithBarang[]>([]);
   const [masterBarang, setMasterBarang] = useState<MasterBarang[]>([]);
+  const [masterSpoList, setMasterSpoList] = useState<MasterSpo[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -75,9 +83,10 @@ export default function UsulanPage() {
     setLoading(true);
     setError("");
 
-    const [usulanRes, masterRes] = await Promise.all([
+    const [usulanRes, masterBarangRes, masterSpoRes] = await Promise.all([
       supabase.from("usulan_barang_titipan").select("*, master_barang_titipan(*)").order("created_at", { ascending: false }),
       supabase.from("master_barang_titipan").select("*").order("kode_barang", { ascending: true }),
+      supabase.from("master_spo").select("no_spo, nama_pemesan, nama_order, jumlah_order"),
     ]);
 
     if (usulanRes.error) {
@@ -86,8 +95,12 @@ export default function UsulanPage() {
       setRows((usulanRes.data ?? []) as UsulanWithBarang[]);
     }
 
-    if (masterRes.data) {
-      setMasterBarang(masterRes.data as MasterBarang[]);
+    if (masterBarangRes.data) {
+      setMasterBarang(masterBarangRes.data as MasterBarang[]);
+    }
+
+    if (masterSpoRes.data) {
+      setMasterSpoList(masterSpoRes.data as MasterSpo[]);
     }
 
     setLoading(false);
@@ -100,6 +113,22 @@ export default function UsulanPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, pageSize]);
+
+  // FUNGSI XLOOKUP OTOMATIS DARI TABEL master_spo
+  const handleNoSpoChange = (val: string) => {
+    setNoSpo(val);
+    if (!val.trim()) return;
+
+    // Cari data di master_spo berdasarkan no_spo
+    const found = masterSpoList.find((item) => item.no_spo.trim().toLowerCase() === val.trim().toLowerCase());
+    if (found) {
+      if (found.nama_order) setNamaOrder(found.nama_order);
+      if (found.nama_pemesan) setNamaPemesan(found.nama_pemesan);
+      if (found.jumlah_order !== undefined && found.jumlah_order !== null) {
+        setJumlahOrder(found.jumlah_order.toString());
+      }
+    }
+  };
 
   const filteredRows = useMemo(() => {
     if (!search.trim()) return rows;
@@ -156,7 +185,7 @@ export default function UsulanPage() {
       setJumlahOrder("");
       setJumlahKedatangan("");
       setKeterangan("");
-      setSuccessMessage("Data inputan barang titipan baru berhasil ditambahkan.");
+      setSuccessMessage("Data inputan barang titipan berhasil ditambahkan.");
       setSuccessModalOpen(true);
       void loadData();
     }
@@ -313,7 +342,7 @@ export default function UsulanPage() {
           )}
         </div>
 
-        {/* MODAL FORM TAMBAH INPUTAN */}
+        {/* MODAL FORM TAMBAH INPUTAN DENGAN FITUR XLOOKUP MASTER SPO */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
@@ -330,12 +359,25 @@ export default function UsulanPage() {
               <form onSubmit={handleSubmit} className="p-5 space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">No SPO *</label>
-                  <Input
-                    placeholder="Contoh: 001/EKS/10/2026"
-                    value={noSpo}
-                    onChange={(e) => setNoSpo(e.target.value)}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      list="list-spo"
+                      placeholder="Contoh: 001/EKS/10/2026"
+                      value={noSpo}
+                      onChange={(e) => handleNoSpoChange(e.target.value)}
+                      required
+                    />
+                    <datalist id="list-spo">
+                      {masterSpoList.map((spo) => (
+                        <option key={spo.no_spo} value={spo.no_spo}>
+                          {spo.nama_order ? `- ${spo.nama_order}` : ""}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    *Ketik atau pilih No SPO dari master untuk mengisi Nama Order, Pemesan, dan Jumlah Order otomatis.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
