@@ -28,7 +28,6 @@ export default function DashboardPage() {
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // State untuk menyimpan lebar kustom tiap kolom (dalam piksel)
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
     no_spo: 140,
     nama_order: 220,
@@ -53,7 +52,7 @@ export default function DashboardPage() {
       if (!resizingRef.current) return;
       const { key, startX, startWidth } = resizingRef.current;
       const diff = moveEvent.clientX - startX;
-      const newWidth = Math.max(80, startWidth + diff); // Lebar minimum 80px
+      const newWidth = Math.max(80, startWidth + diff);
       setColumnWidths((prev) => ({ ...prev, [key]: newWidth }));
     };
 
@@ -173,29 +172,43 @@ export default function DashboardPage() {
       subtitle="Ringkasan inputan barang titipan, akumulasi kekurangan, dan pencarian cepat."
     >
       <div className="space-y-6 w-full min-w-0">
+        
+        {/* HEADER / JUDUL HALAMAN BERGRADASI BIRU LEMBUT KE KANAN & CENTER */}
+        <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-400 text-white shadow-md">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Dashboard Rekap Data
+          </h1>
+          <p className="mt-1.5 text-xs sm:text-sm text-blue-50 font-medium">
+            Ringkasan inputan barang titipan, akumulasi kekurangan, dan pencarian cepat.
+          </p>
+        </div>
+
+        {/* CARD RINGKASAN (KARTU KEKURANGAN KUSTOM WARNA CREAM LEBIH TEBAL & ANGKA MERAH) */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="p-5">
+          <Card className="p-5 bg-white shadow-sm border border-slate-200">
             <p className="text-sm font-medium text-slate-500">Total SPO / Inputan</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">{totalSPO}</p>
           </Card>
-          <Card className="p-5">
+          <Card className="p-5 bg-white shadow-sm border border-slate-200">
             <p className="text-sm font-medium text-slate-500">Jumlah Order</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {totalJumlahOrder.toLocaleString("id-ID")}
             </p>
           </Card>
-          <Card className="p-5">
+          <Card className="p-5 bg-white shadow-sm border border-slate-200">
             <p className="text-sm font-medium text-slate-500">Sudah Datang</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {totalSudahDatang.toLocaleString("id-ID")}
             </p>
           </Card>
-          <Card className="p-5">
-            <p className="text-sm font-medium text-slate-500">Kekurangan</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">
+          
+          {/* KARTU KEKURANGAN: CREAM LEBIH TEBAL & ANGKA MERAH */}
+          <Card className="p-5 bg-[#F7F2E8] shadow-md border border-[#EBE3D0]">
+            <p className="text-sm font-semibold text-slate-700">Kekurangan</p>
+            <p className="mt-2 text-3xl font-extrabold text-rose-600">
               {totalKekurangan.toLocaleString("id-ID")}
             </p>
-            <p className="mt-1 text-xs font-medium text-slate-500">
+            <p className="mt-1 text-xs font-medium text-slate-600">
               {groupedData.filter((i) => i.kekurangan > 0).length} SPO masih ada kekurangan
             </p>
           </Card>
@@ -203,11 +216,12 @@ export default function DashboardPage() {
 
         {error ? <Alert tone="error">{error}</Alert> : null}
 
-        <Card className="p-0 overflow-hidden w-full min-w-0">
-          <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white">
+        {/* TABEL UTAMA DENGAN BACKGROUND CREAMY DAN EFEK 3D/SHADOW */}
+        <Card className="p-0 overflow-hidden w-full min-w-0 shadow-lg border border-slate-200/80 rounded-2xl">
+          <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#FAF7F0]">
             <div>
               <h2 className="text-lg font-bold text-slate-900">Rekap Inputan</h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-600">
                 Kekurangan dihitung otomatis dari jumlah order dikurangi akumulasi kedatangan barang.
               </p>
             </div>
@@ -234,9 +248,9 @@ export default function DashboardPage() {
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-slate-500">Memuat rekap data...</div>
+            <div className="p-8 text-center text-sm text-slate-500 bg-[#FDFBF7]">Memuat rekap data...</div>
           ) : filteredData.length === 0 ? (
-            <div className="p-8">
+            <div className="p-8 bg-[#FDFBF7]">
               <EmptyState
                 title="Tidak ada data rekap"
                 text={search ? "Tidak ada inputan yang cocok dengan pencarian." : "Belum ada inputan barang yang dicatat."}
@@ -244,9 +258,10 @@ export default function DashboardPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto w-full p-4 bg-white">
-                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-700 table-fixed">
-                  <thead className="bg-slate-100 text-xs font-semibold uppercase text-slate-700 select-none">
+              {/* ISI TABEL DENGAN BACKGROUND CREAMY LEMBUT */}
+              <div className="overflow-x-auto w-full p-4 bg-[#FDFBF7]">
+                <table className="w-full border-collapse border border-slate-300 text-left text-sm text-slate-800 table-fixed shadow-sm">
+                  <thead className="bg-[#F2ECE1] text-xs font-bold uppercase text-slate-700 select-none">
                     <tr>
                       {[
                         { key: "no_spo", label: "NO SPO" },
@@ -265,7 +280,6 @@ export default function DashboardPage() {
                           <div className="px-4 py-3 text-center truncate">
                             {col.label}
                           </div>
-                          {/* Pegangan Drag Resizer (Garis Hijau Menyala saat Hover/Drag) */}
                           <div
                             onMouseDown={(e) => startResizing(col.key, e)}
                             className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent group-hover:bg-emerald-500 transition-colors"
@@ -274,9 +288,9 @@ export default function DashboardPage() {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white">
+                  <tbody className="bg-[#FDFBF7]">
                     {paginatedData.map((item) => (
-                      <tr key={item.no_spo} className="hover:bg-slate-50 transition">
+                      <tr key={item.no_spo} className="hover:bg-[#F5EEDC] transition">
                         <td className="border border-slate-300 px-4 py-3 font-semibold text-slate-900 truncate font-mono">
                           {item.no_spo}
                         </td>
@@ -287,7 +301,7 @@ export default function DashboardPage() {
                           {item.nama_pemesan}
                         </td>
                         <td className="border border-slate-300 px-4 py-3 truncate">
-                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
+                          <span className="inline-block rounded bg-white border border-slate-300 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5 shadow-2xs">
                             {item.kode_barang}
                           </span>
                           <span className="text-slate-700">{item.nama_bahan}</span>
@@ -313,7 +327,8 @@ export default function DashboardPage() {
                 </table>
               </div>
 
-              <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 text-xs text-slate-600">
+              {/* FOOTER PAGINASI */}
+              <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#FAF7F0] text-xs text-slate-600">
                 <div className="flex items-center gap-2">
                   <span>Tampilkan:</span>
                   <select
