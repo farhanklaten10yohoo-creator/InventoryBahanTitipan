@@ -1,64 +1,180 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PageBanner } from "@/components/page-banner";
 import { SuccessModal } from "@/components/success-modal";
 import { Alert, Button, Card, EmptyState, Input } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import type { UsulanWithBarang } from "@/lib/types";
-import { explainError } from "@/lib/utils";
+import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
+import { explainError, toNumber } from "@/lib/utils";
 
 export default function UsulanPage() {
   const [rows, setRows] = useState<UsulanWithBarang[]>([]);
+  const [masterBarang, setMasterBarang] = useState<MasterBarang[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("Data inputan barang titipan berhasil disimpan.");
 
-  const load = useCallback(async () => {
+  // State Modal Form Tambah
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [noSpo, setNoSpo] = useState("");
+  const [namaOrder, setNamaOrder] = useState("");
+  const [namaPemesan, setNamaPemesan] = useState("");
+  const [masterBarangId, setMasterBarangId] = useState("");
+  const [jumlahOrder, setJumlahOrder] = useState("");
+  const [jumlahKedatangan, setJumlahKedatangan] = useState("");
+  const [keterangan, setKeterangan] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  // Paginasi & Resizing Kolom
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
+    no_spo: 140,
+    nama_order: 200,
+    nama_pemesan: 180,
+    barang: 220,
+    jumlah_order: 140,
+    kedatangan: 130,
+    keterangan: 160,
+  });
+
+  const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  const startResizing = (key: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = {
+      key,
+      startX: e.clientX,
+      startWidth: columnWidths[key] || 150,
+    };
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const { key, startX, startWidth } = resizingRef.current;
+      const diff = moveEvent.clientX - startX;
+      const newWidth = Math.max(80, startWidth + diff);
+      setColumnWidths((prev) => ({ ...prev, [key]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      resizingRef.current = null;
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
-    const { data, error: fetchError } = await supabase
-      .from("usulan_barang_titipan")
-      .select("*, master_barang_titipan(*)")
-      .order("created_at", { ascending: false });
 
-    if (fetchError) {
-      setError(explainError(fetchError.message));
+    const [usulanRes, masterRes] = await Promise.all([
+      supabase.from("usulan_barang_titipan").select("*, master_barang_titipan(*)").order("created_at", { ascending: false }),
+      supabase.from("master_barang_titipan").select("*").order("kode_barang", { ascending: true }),
+    ]);
+
+    if (usulanRes.error) {
+      setError(explainError(usulanRes.error.message));
     } else {
-      setRows((data ?? []) as UsulanWithBarang[]);
+      setRows((usulanRes.data ?? []) as UsulanWithBarang[]);
     }
+
+    if (masterRes.data) {
+      setMasterBarang(masterRes.data as MasterBarang[]);
+    }
+
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadData();
+  }, [loadData]);
 
-  const filteredRows = rows.filter((item) => {
-    if (!search.trim()) return true;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, pageSize]);
+
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows;
     const q = search.toLowerCase();
-    return (
-      item.no_spo.toLowerCase().includes(q) ||
-      (item.nama_pemesan && item.nama_pemesan.toLowerCase().includes(q)) ||
-      (item.nama_order && item.nama_order.toLowerCase().includes(q)) ||
-      (item.master_barang_titipan?.kode_barang && item.master_barang_titipan.kode_barang.toLowerCase().includes(q))
+    return rows.filter(
+      (item) =>
+        item.no_spo.toLowerCase().includes(q) ||
+        (item.nama_pemesan && item.nama_pemesan.toLowerCase().includes(q)) ||
+        (item.nama_order && item.nama_order.toLowerCase().includes(q)) ||
+        (item.master_barang_titipan?.kode_barang && item.master_barang_titipan.kode_barang.toLowerCase().includes(q)) ||
+        (item.master_barang_titipan?.nama_bahan && item.master_barang_titipan.nama_bahan.toLowerCase().includes(q))
     );
-  });
+  }, [rows, search]);
+
+  const totalPages = Math.ceil(filteredRows.length / pageSize) || 1;
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage, pageSize]);
+
+  const startIndex = filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(currentPage * pageSize, filteredRows.length);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noSpo.trim() || !masterBarangId) {
+      alert("No SPO dan Barang Titipan wajib diisi.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+
+    const { error: insertError } = await supabase.from("usulan_barang_titipan").insert({
+      no_spo: noSpo.trim(),
+      nama_order: namaOrder.trim(),
+      nama_pemesan: namaPemesan.trim(),
+      master_barang_id: Number(masterBarangId),
+      jumlah_order: toNumber(jumlahOrder),
+      jumlah_kedatangan: toNumber(jumlahKedatangan),
+      keterangan: keterangan.trim(),
+    });
+
+    setSubmitting(false);
+
+    if (insertError) {
+      setError(explainError(insertError.message));
+    } else {
+      setIsModalOpen(false);
+      setNoSpo("");
+      setNamaOrder("");
+      setNamaPemesan("");
+      setMasterBarangId("");
+      setJumlahOrder("");
+      setJumlahKedatangan("");
+      setKeterangan("");
+      setSuccessMessage("Data inputan barang titipan baru berhasil ditambahkan.");
+      setSuccessModalOpen(true);
+      void loadData();
+    }
+  };
 
   return (
     <AppShell title="" subtitle="">
       <div className="space-y-6 w-full min-w-0">
         
-        {/* PAGE BANNER UTAMA */}
+        {/* PAGE BANNER */}
         <PageBanner
           title="Input Barang Titipan"
-          subtitle="Input transaksi inputan, catat kedatangan barang, dan kelola riwayat order."
+          subtitle="Input transaksi usulan, catat kedatangan barang, dan kelola riwayat order."
         />
 
         {error ? <Alert tone="error">{error}</Alert> : null}
 
+        {/* TABEL UTAMA */}
         <div className="p-0 overflow-hidden w-full min-w-0 shadow-lg border border-slate-200 rounded-2xl bg-white">
           <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -76,7 +192,7 @@ export default function UsulanPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Button onClick={() => setSuccessModalOpen(true)}>
+              <Button onClick={() => setIsModalOpen(true)}>
                 + Tambah Inputan
               </Button>
             </div>
@@ -92,55 +208,219 @@ export default function UsulanPage() {
               />
             </div>
           ) : (
-            <div className="overflow-x-auto w-full p-4">
-              <table className="w-full border-collapse border border-slate-200 text-left text-sm text-slate-800">
-                <thead className="bg-slate-100 text-xs font-bold uppercase text-slate-700">
-                  <tr>
-                    <th className="border border-slate-200 px-4 py-3">NO SPO</th>
-                    <th className="border border-slate-200 px-4 py-3">NAMA ORDER</th>
-                    <th className="border border-slate-200 px-4 py-3">NAMA PEMESAN</th>
-                    <th className="border border-slate-200 px-4 py-3">BARANG TITIPAN</th>
-                    <th className="border border-slate-200 px-4 py-3 text-right">JUMLAH ORDER</th>
-                    <th className="border border-slate-200 px-4 py-3 text-right">KEDATANGAN</th>
-                    <th className="border border-slate-200 px-4 py-3">KETERANGAN</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50 transition">
-                      <td className="border border-slate-200 px-4 py-3 font-semibold font-mono text-slate-900">
-                        {item.no_spo}
-                      </td>
-                      <td className="border border-slate-200 px-4 py-3">{item.nama_order || "-"}</td>
-                      <td className="border border-slate-200 px-4 py-3">{item.nama_pemesan || "-"}</td>
-                      <td className="border border-slate-200 px-4 py-3">
-                        <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
-                          {item.master_barang_titipan?.kode_barang || "-"}
-                        </span>
-                        {item.master_barang_titipan?.nama_bahan || "-"}
-                      </td>
-                      <td className="border border-slate-200 px-4 py-3 text-right font-medium">
-                        {item.jumlah_order.toLocaleString("id-ID")}
-                      </td>
-                      <td className="border border-slate-200 px-4 py-3 text-right font-medium text-emerald-700">
-                        {item.jumlah_kedatangan.toLocaleString("id-ID")}
-                      </td>
-                      <td className="border border-slate-200 px-4 py-3 text-slate-600">
-                        {item.keterangan || "-"}
-                      </td>
+            <>
+              <div className="overflow-x-auto w-full p-4">
+                <table className="w-full border-collapse border border-slate-200 text-left text-sm text-slate-800 table-fixed shadow-sm">
+                  <thead className="bg-slate-100 text-xs font-bold uppercase text-slate-700 select-none">
+                    <tr>
+                      {[
+                        { key: "no_spo", label: "NO SPO" },
+                        { key: "nama_order", label: "NAMA ORDER" },
+                        { key: "nama_pemesan", label: "NAMA PEMESAN" },
+                        { key: "barang", label: "BARANG TITIPAN" },
+                        { key: "jumlah_order", label: "JUMLAH ORDER" },
+                        { key: "kedatangan", label: "KEDATANGAN" },
+                        { key: "keterangan", label: "KETERANGAN" },
+                      ].map((col) => (
+                        <th
+                          key={col.key}
+                          style={{ width: columnWidths[col.key] }}
+                          className="border border-slate-200 p-0 text-center relative group hover:border-emerald-600 transition-colors"
+                        >
+                          <div className="px-4 py-3 text-center truncate">
+                            {col.label}
+                          </div>
+                          <div
+                            onMouseDown={(e) => startResizing(col.key, e)}
+                            className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize bg-transparent group-hover:bg-emerald-600 transition-colors"
+                          />
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50 transition">
+                        <td className="border border-slate-200 px-4 py-3 font-semibold font-mono text-slate-900 truncate">
+                          {item.no_spo}
+                        </td>
+                        <td className="border border-slate-200 px-4 py-3 truncate">{item.nama_order || "-"}</td>
+                        <td className="border border-slate-200 px-4 py-3 truncate">{item.nama_pemesan || "-"}</td>
+                        <td className="border border-slate-200 px-4 py-3 truncate">
+                          <span className="inline-block rounded bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-mono font-medium text-slate-800 mr-1.5">
+                            {item.master_barang_titipan?.kode_barang || "-"}
+                          </span>
+                          <span className="text-slate-700">{item.master_barang_titipan?.nama_bahan || "-"}</span>
+                        </td>
+                        <td className="border border-slate-200 px-4 py-3 text-right font-medium whitespace-nowrap">
+                          {item.jumlah_order.toLocaleString("id-ID")}
+                        </td>
+                        <td className="border border-slate-200 px-4 py-3 text-right font-medium text-emerald-700 whitespace-nowrap">
+                          {item.jumlah_kedatangan.toLocaleString("id-ID")}
+                        </td>
+                        <td className="border border-slate-200 px-4 py-3 text-slate-600 truncate">
+                          {item.keterangan || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* FOOTER PAGINASI & SELECT PAGE SIZE */}
+              <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+                <div className="flex items-center gap-2">
+                  <span>Tampilkan:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-800 focus:border-slate-500 focus:outline-none"
+                  >
+                    <option value={5}>5 baris</option>
+                    <option value={10}>10 baris</option>
+                    <option value={25}>25 baris</option>
+                    <option value={50}>50 baris</option>
+                    <option value={100}>100 baris</option>
+                  </select>
+                  <span>
+                    | Menampilkan <strong>{startIndex}</strong> - <strong>{endIndex}</strong> dari{" "}
+                    <strong>{filteredRows.length}</strong> data
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    className="px-3 py-1 text-xs"
+                  >
+                    Sebelumnya
+                  </Button>
+                  <span className="font-semibold text-slate-800">
+                    Halaman {currentPage} dari {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    className="px-3 py-1 text-xs"
+                  >
+                    Selanjutnya
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
+
+        {/* MODAL FORM TAMBAH INPUTAN */}
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+              <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900">Tambah Inputan Barang Titipan</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">No SPO *</label>
+                  <Input
+                    placeholder="Contoh: 001/EKS/10/2026"
+                    value={noSpo}
+                    onChange={(e) => setNoSpo(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Order</label>
+                    <Input
+                      placeholder="Contoh: Buku Hardcover"
+                      value={namaOrder}
+                      onChange={(e) => setNamaOrder(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Pemesan</label>
+                    <Input
+                      placeholder="Nama pemesan / klien"
+                      value={namaPemesan}
+                      onChange={(e) => setNamaPemesan(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pilih Barang Titipan *</label>
+                  <select
+                    value={masterBarangId}
+                    onChange={(e) => setMasterBarangId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none"
+                    required
+                  >
+                    <option value="">-- Pilih Barang dari Master --</option>
+                    {masterBarang.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.kode_barang} - {item.nama_bahan} ({item.kategori})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Jumlah Order</label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={jumlahOrder}
+                      onChange={(e) => setJumlahOrder(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Jumlah Kedatangan</label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={jumlahKedatangan}
+                      onChange={(e) => setJumlahKedatangan(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Keterangan</label>
+                  <Input
+                    placeholder="Catatan tambahan (opsional)"
+                    value={keterangan}
+                    onChange={(e) => setKeterangan(e.target.value)}
+                  />
+                </div>
+                <div className="pt-3 flex items-center justify-end gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Batal
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? "Menyimpan..." : "Simpan Data"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         <SuccessModal
           isOpen={successModalOpen}
           onClose={() => setSuccessModalOpen(false)}
           title="Berhasil Disimpan!"
-          message="Data inputan barang titipan baru telah berhasil ditambahkan ke sistem."
+          message={successMessage}
         />
       </div>
     </AppShell>
