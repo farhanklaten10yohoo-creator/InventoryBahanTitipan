@@ -196,9 +196,7 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
           </button>
 
           <div>
-            <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-              OPERASIONAL TITIPAN
-            </span>
+         
             <h1 className="text-xl font-bold text-slate-900 mt-0.5">{title}</h1>
             {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
           </div>
