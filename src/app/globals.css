@@ -10,3 +10,19 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+@keyframes drawCheck {
+  0% {
+    stroke-dasharray: 30;
+    stroke-dashoffset: 30;
+  }
+  100% {
+    stroke-dasharray: 30;
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-draw-check {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 0;
+  animation: drawCheck 0.6s ease-in-out forwards;
+}

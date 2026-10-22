@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Alert, Button, Card, EmptyState, Input } from "@/components/ui";
+import { SuccessModal } from "@/components/success-modal";
 import { supabase } from "@/lib/supabase";
 import type { MasterBarang, UsulanWithBarang } from "@/lib/types";
 import { explainError, toNumber } from "@/lib/utils";
@@ -14,6 +15,9 @@ export default function UsulanPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // State untuk Pop-up Sukses Beranimasi
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [pageSize, setPageSize] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -29,7 +33,6 @@ export default function UsulanPage() {
   const [jumlahKedatangan, setJumlahKedatangan] = useState<number | "">(0);
   const [keterangan, setKeterangan] = useState("");
 
-  // State untuk lebar kolom interaktif
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>({
     no_spo: 140,
     nama_order: 220,
@@ -218,7 +221,10 @@ export default function UsulanPage() {
     } else {
       setIsModalOpen(false);
       resetForm();
-      void loadData();
+      // Panggil pop-up sukses dengan animasi centang
+      setSuccessMessage(
+        editingId ? "Ubah Data Barang Titipan Berhasil" : `Simpan Master Barang Titipan ${payload.no_spo} Berhasil`
+      );
     }
   };
 
@@ -557,6 +563,16 @@ export default function UsulanPage() {
           </div>
         </div>
       ) : null}
+
+      {/* POP-UP SUKSES DENGAN ANIMASI CENTANG BERGERAK */}
+      <SuccessModal
+        isOpen={Boolean(successMessage)}
+        message={successMessage || ""}
+        onClose={() => {
+          setSuccessMessage(null);
+          void loadData();
+        }}
+      />
     </AppShell>
   );
 }
