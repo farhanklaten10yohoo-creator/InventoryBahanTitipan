@@ -225,7 +225,7 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-lg font-bold text-slate-900">Rekap Inputan</h2>
               <p className="text-xs text-slate-500">
-                Kekurangan dihitung otomatis dari jumlah order dikurangi akumulasi kedatangan barang.
+                Monitoring kedatangan barang titipan disini.
               </p>
             </div>
             
