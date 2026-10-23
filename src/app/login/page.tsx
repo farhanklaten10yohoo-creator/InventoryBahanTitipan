@@ -50,7 +50,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Inventory Titipan</h1>
           <p className="text-xs text-slate-500">
-            Masukkan username dan password Anda untuk mengakses aplikasi
+            Masukkan username dan password Anda
           </p>
         </div>
         {error ? <Alert tone="error">{error}</Alert> : null}

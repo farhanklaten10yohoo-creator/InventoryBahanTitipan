@@ -65,7 +65,6 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
   const navItems = [
     {
       label: "Dashboard Rekap",
-      sublabel: "Pantau order & kekurangan",
       href: "/",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +74,6 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
     },
     {
       label: "Master Barang Titipan",
-      sublabel: "Katalog bahan & kode",
       href: "/master",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,7 +83,6 @@ export function AppShell({ title, subtitle, children }: AppShellProps) {
     },
     {
       label: "Input Barang Titipan",
-      sublabel: "Input order customer",
       href: "/usulan",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
